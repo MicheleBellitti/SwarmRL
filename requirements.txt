@@ -1,0 +1,12 @@
+numpy
+matplotlib
+scipy
+tensorflow
+torch
+RLlib
+pyNetLogo
+pygame
+pettingzoo
+ray[rllib]
+gym
+gymnasium
