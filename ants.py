@@ -1,10 +1,10 @@
 import numpy as np
 import pygame
 import random
+from environment import Swarm
 
 
-
-class AntSwarm:
+class AntSwarm(Swarm):
     def __init__(self, num_ants=20, grid_size=50, num_food_sources=5, cell_size=15, max_food_per_source=10):
         self.num_ants = num_ants
         self.grid_size = grid_size
@@ -26,7 +26,7 @@ class AntSwarm:
         self.nest_location = np.array([self.grid_size // 2, self.grid_size // 2])
         self.pheromone_trail = np.zeros((self.grid_size, self.grid_size))
         self.directions = np.array([[0, 1], [1, 0], [0, -1], [-1, 0]])  # Up, Right, Down, Left
-        self.ants = [{'position': np.random.randint(0, self.grid_size, 2), 'has_food': False} for _ in range(self.num_ants)]
+        self.ants = self.create_agent()
         self.food_collected = 0
 
     def reset(self):
@@ -61,7 +61,8 @@ class AntSwarm:
 
         # Check for food at new position
         self.check_for_food_at_new_position(ant)
-
+    def create_agent(self):
+        return [{'position': np.random.randint(0, self.grid_size, 2), 'has_food': False} for _ in range(self.num_ants)]
     def calculate_pheromone_follow_probability(self, position):
         # logic to determine the probability of following pheromones
         # This could be based on the intensity of pheromones at the current position
