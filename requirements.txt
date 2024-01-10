@@ -8,5 +8,6 @@ pyNetLogo
 pygame
 pettingzoo
 ray[rllib]
+pygame-gui
 gym
 gymnasium

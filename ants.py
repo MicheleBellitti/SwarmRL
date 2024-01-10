@@ -35,7 +35,7 @@ class AntSwarm(Swarm):
     def step(self):
         for ant in self.ants:
             self.move_ant(ant)
-        self.pheromone_trail *= 0.99  # Pheromone evaporation
+        self.pheromone_trail *= 0.97  # Pheromone evaporation
 
     def move_ant(self, ant):
         if ant['has_food']:
@@ -61,8 +61,10 @@ class AntSwarm(Swarm):
 
         # Check for food at new position
         self.check_for_food_at_new_position(ant)
+        
     def create_agent(self):
         return [{'position': np.random.randint(0, self.grid_size, 2), 'has_food': False} for _ in range(self.num_ants)]
+    
     def calculate_pheromone_follow_probability(self, position):
         # logic to determine the probability of following pheromones
         # This could be based on the intensity of pheromones at the current position
@@ -99,7 +101,7 @@ class AntSwarm(Swarm):
         move_direction = np.argmax(np.abs(direction_to_nest))
         step_direction = 1 if direction_to_nest[move_direction] > 0 else -1
         ant['position'][move_direction] += step_direction
-        self.pheromone_trail[tuple(ant['position'])] += 1
+        self.pheromone_trail[tuple(ant['position'])] += 15
 
         # Check if ant reached the nest
         if np.array_equal(ant['position'], self.nest_location):

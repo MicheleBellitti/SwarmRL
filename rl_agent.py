@@ -1,7 +1,19 @@
 import numpy as np
 import pprint
-class RLAgent:
-    def __init__(self, n_states, n_actions, learning_rate=0.01, gamma=0.95, epsilon=0.1):
+from abc import ABC, abstractmethod
+class RLAlgorithm(ABC):
+    @abstractmethod
+    def learn(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def choose_action(self, *args, **kwargs):
+        pass
+
+
+
+class QLearning(RLAlgorithm):
+    def __init__(self, n_states, n_actions, learning_rate=0.01, gamma=0.8, epsilon=0.75):
         self.q_table = np.zeros((n_states, n_actions))
         self.n_actions = n_actions
         self.lr = learning_rate
@@ -22,6 +34,7 @@ class RLAgent:
     
     def state_to_index(self, state):
         # Unpack the state
+        
         position, has_food = state
         
         
