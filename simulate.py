@@ -8,6 +8,7 @@ import pygame
 import pygame_gui
 from params import *
 
+
 class SimulationInterface:
     def __init__(self, screen_size=(800, 600)):
         pygame.init()
@@ -17,9 +18,11 @@ class SimulationInterface:
         self.create_ui_elements()
 
     def create_ui_elements(self):
-        self.start_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((350, 275), (100, 50)),
-                                                         text='Start',
-                                                         manager=self.manager)
+        self.start_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((350, 275), (100, 50)),
+            text="Start",
+            manager=self.manager,
+        )
         # Additional buttons and sliders can be added similarly
 
     def run(self):
@@ -44,24 +47,28 @@ class SimulationInterface:
             pygame.display.update()
 
         pygame.quit()
+
+
 import pandas as pd
 
 # To run the interface
-if __name__ == '__main__':
-    
-
-
+if __name__ == "__main__":
     start_time = time.time()
 
     # Initialize the ant environment
-    ant_env = AntEnvironment(num_actions=4, num_states=50*50*2,grid_size=50, num_ants=20, num_food_sources=5)
+    ant_env = AntEnvironment(
+        num_actions=4,
+        num_states=50 * 50 * 2,
+        grid_size=50,
+        num_ants=20,
+        num_food_sources=5,
+    )
     # ant_env.render()
     time_no_RL = time.time() - start_time
     # print("Time without RL: ", time_no_RL)
     # Get the number of states and actions
     n_states = ant_env.num_states
     n_actions = ant_env.num_actions
-
 
     # Create RL agents
     agents = [QLearning(n_states, n_actions) for _ in range(ant_env.ant_swarm.num_ants)]
@@ -71,15 +78,11 @@ if __name__ == '__main__':
     configs = [config1, config2, config3, config4, config5]
     for config in configs:
         start_time = time.time()
-        results = trainer.train(config, episodes=200)
+        results = trainer.train(config, episodes=20)
         end = time.time() - start_time
         print("Experiment time: ", end)
-
-
-    
 
     # print("Time with RL: ", time_with_RL)
     trainer.analyze_results(results)
     for i, agent in enumerate(agents):
-        print(f'Agent{i}: {agent.q_table}')
-
+        print(f"Agent{i}: {agent.q_table}")

@@ -1,6 +1,8 @@
 import numpy as np
 import pprint
 from abc import ABC, abstractmethod
+
+
 class RLAlgorithm(ABC):
     @abstractmethod
     def learn(self, *args, **kwargs):
@@ -11,9 +13,10 @@ class RLAlgorithm(ABC):
         pass
 
 
-
 class QLearning(RLAlgorithm):
-    def __init__(self, n_states, n_actions, learning_rate=0.01, gamma=0.8, epsilon=0.75):
+    def __init__(
+        self, n_states, n_actions, learning_rate=0.01, gamma=0.95, epsilon=0.1
+    ):
         self.q_table = np.zeros((n_states, n_actions))
         self.n_actions = n_actions
         self.lr = learning_rate
@@ -31,19 +34,18 @@ class QLearning(RLAlgorithm):
             action = np.argmax(self.q_table[state_index])
 
         return action
-    
+
     def state_to_index(self, state):
         # Unpack the state
-        
+
         position, has_food = state
-        
-        
+
         grid_size = 50
         # Convert the 2D position to a single index
         position_index = position[0] * grid_size + position[1]
 
         # Adjust the index based on the food-carrying status
-        # We allocate the first half of indices for 'not carrying food' 
+        # We allocate the first half of indices for 'not carrying food'
         # and the second half for 'carrying food'.
         if has_food:
             # Assuming that 'has_food' is a boolean
@@ -52,7 +54,6 @@ class QLearning(RLAlgorithm):
             return position_index
 
     def learn(self, state, action, reward, next_state):
-        # pprint.pprint(self.q_table)
         # Convert state and next_state to indices
         state_index = self.state_to_index(state)
         next_state_index = self.state_to_index(next_state)
@@ -60,5 +61,7 @@ class QLearning(RLAlgorithm):
         # Update the Q-table
         current_q = self.q_table[state_index, action]
         max_future_q = np.max(self.q_table[next_state_index])
-        new_q = (1 - self.lr) * current_q + self.lr * (reward + self.gamma * max_future_q)
+        new_q = (1 - self.lr) * current_q + self.lr * (
+            reward + self.gamma * max_future_q
+        )
         self.q_table[state_index, action] = new_q
