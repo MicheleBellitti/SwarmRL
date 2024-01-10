@@ -81,7 +81,7 @@ class AntSwarm(Swarm):
 
     def create_agent(self):
         return [
-            {"position": np.random.randint(0, self.grid_size, 2), "has_food": False}
+            {"position": self.nest_location, "has_food": False}
             for _ in range(self.num_ants)
         ]
 
