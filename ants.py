@@ -48,19 +48,55 @@ class AntSwarm(Swarm):
         self.init_environment()
 
     def step(self):
+        '''for ant in self.ants:
+            self.move_ant(ant)'''
         for ant in self.ants:
-            self.move_ant(ant)
+            if ant["has_food"] and np.array_equal(ant["position"], self.nest_location):
+                ant["has_food"] = False
+                self.food_collected += 1
         self.pheromone_trail *= 0.97  # Pheromone evaporation
+        self.diffuse_pheromones()
 
-    def move_ant(self, ant):
-        if ant["has_food"]:
-            self.return_to_nest(ant)
-        else:
+    def diffuse_pheromones(self):
+        diffusion_probability = 0.1  # Adjust as needed
+        diffusion_rate = 0.1  # Fraction of pheromone that diffuses
+        direct_pheromone_threshold = 10  # Threshold to differentiate direct pheromones
+
+        new_pheromone_trail = np.copy(self.pheromone_trail)
+
+        for x in range(self.grid_size):
+            for y in range(self.grid_size):
+                if self.pheromone_trail[x, y] >= direct_pheromone_threshold:
+                    if np.random.rand() < diffusion_probability:
+                        diffused_amount = self.pheromone_trail[x, y] * diffusion_rate
+                        new_pheromone_trail[x, y] -= diffused_amount
+
+                        # Spread to adjacent cells
+                        for dx, dy in self.directions:
+                            nx, ny = x + dx, y + dy
+                            if 0 <= nx < self.grid_size and 0 <= ny < self.grid_size:
+                                new_pheromone_trail[nx, ny] += diffused_amount / 4
+
+        self.pheromone_trail = new_pheromone_trail
+    def move_ant(self, ant, action=0):
+        '''if ant["has_food"]:
+            
+            self.return_to_nest(ant)'''
+        
+        
+        if action == 0:
             self.search_food(ant)
+        
+        elif action == 1:
+            direction = self.choose_direction_based_on_pheromone(ant["position"])
+            self.search_food(ant, direction)
+        elif action == 2:
+            self.return_to_nest(ant)
+            
 
-    def search_food(self, ant):
+    def search_food(self, ant, move_direction=None):
         # Determine the probability of following the pheromone trail
-        follow_pheromone_prob = self.calculate_pheromone_follow_probability(
+        '''follow_pheromone_prob = self.calculate_pheromone_follow_probability(
             ant["position"]
         )
 
@@ -68,8 +104,8 @@ class AntSwarm(Swarm):
             # Follow pheromone trail
             move_direction = self.choose_direction_based_on_pheromone(ant["position"])
         else:
-            # Random walk
-            move_direction = np.random.choice(range(4))
+            # Random walk'''
+        move_direction = np.random.choice(range(4))
 
         # Update ant's position
         new_position = ant["position"] + self.directions[move_direction]
@@ -84,6 +120,18 @@ class AntSwarm(Swarm):
             {"position": self.nest_location, "has_food": False}
             for _ in range(self.num_ants)
         ]
+    def get_nearest_food_distance(self, ant_position):
+        min_distance = float('inf')
+        for food_pos in self.food_sources:
+            distance = np.linalg.norm(np.array(food_pos) - np.array(ant_position))
+            if distance < min_distance:
+                min_distance = distance
+
+        if min_distance == float('inf'):
+            # No food sources available, return a default high value
+            return 100  # You can adjust this value as needed
+
+        return min_distance
 
     def calculate_pheromone_follow_probability(self, position):
         # determine the probability of following pheromones based on the intensity of pheromones at the current position
@@ -128,11 +176,7 @@ class AntSwarm(Swarm):
         ant["position"][move_direction] += step_direction
         self.pheromone_trail[tuple(ant["position"])] += 15
 
-        # Check if ant reached the nest
-        if np.array_equal(ant["position"], self.nest_location):
-            if ant["has_food"]:
-                ant["has_food"] = False
-                self.food_collected += 1
+        
 
     def render(self):
         self.screen.fill((250, 250, 210))  # Light background
@@ -146,7 +190,7 @@ class AntSwarm(Swarm):
                     if intensity > 0:
                         pygame.draw.rect(
                             self.screen,
-                            (220, 220, 220, intensity * 255),
+                            (int(220*intensity), 220, 220, intensity * 255),
                             (
                                 x * self.cell_size,
                                 y * self.cell_size,
@@ -196,7 +240,7 @@ class AntSwarm(Swarm):
         self.screen.blit(info_text, (5, 5))
 
         pygame.display.flip()
-        self.clock.tick(10)  # Control simulation speed
+        self.clock.tick(50)  # Control simulation speed
 
     def close(self):
         pygame.quit()

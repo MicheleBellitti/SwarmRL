@@ -47,39 +47,47 @@ class AntEnvironment(SwarmEnvironment):
         return next_state, rewards, done
 
     def apply_action(self, ant, action):
-        # Example action space: 0 = Up, 1 = Right, 2 = Down, 3 = Left
-        # directions = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])  # Up, Right, Down, Left
-        if 0 <= action < 4:
-            self.ant_swarm.move_ant(ant)
-        elif action == 4:  # Assume 4 is to pick up food
-            # Implement food pick-up logic (if at food location) and returning to nest
-            self.ant_swarm.return_to_nest(ant)
+        # Apply the action to the ant
+        # actions: 0 = move randomly, 1 = follow pheromone trail, 2 = return to nest
+        
+        # check if action is possible, otherwise deafult is random walk
+        if ant["has_food"] and action != 2:
+            action = 2
+        if action == 2 and not ant["has_food"]:
+            action = 0
+        self.ant_swarm.move_ant(ant, action)
+        
 
     def calculate_rewards(self):
         # Define and calculate rewards for the ants' actions
-        # Example: positive reward for food collection
+        
         return [self.get_reward(ant) for ant in self.ant_swarm.ants]
 
     def get_reward(self, ant):
-        # Example reward structure
-        if ant["has_food"] and np.array_equal(
-            ant["position"], self.ant_swarm.nest_location
-        ):
+        if ant["has_food"] and np.array_equal(ant["position"], self.ant_swarm.nest_location):
+            ant["has_food"] = False
             return 100  # Reward for delivering food
-        elif not ant["has_food"]:
-            for food_pos in self.ant_swarm.food_sources.keys():
-                if np.array_equal(ant["position"], food_pos):
-                    return 10  # Reward for finding food
-        return -0.1  # Small negative reward otherwise
+        elif ant["has_food"] and self.ant_swarm.pheromone_trail[tuple(ant["position"])] > 0:
+            return 50  # Increased reward for finding food following pheromone trail
+        elif self.ant_swarm.pheromone_trail[tuple(ant["position"])] > 0:
+            return 5  # Reward for following pheromone trail
+        return -0.05  # Small penalty to encourage exploration
 
     def check_if_done(self):
         # Example termination condition
         return len(self.ant_swarm.food_sources) == 0  # All food collected
 
+    
     def get_state(self):
-        # Define and return the current state of the ant swarm
-        # This could be as simple as positions of all ants and food status
-        return [(ant["position"], ant["has_food"]) for ant in self.ant_swarm.ants]
+        states = []
+        for ant in self.ant_swarm.ants:
+            nearest_food_distance = self.ant_swarm.get_nearest_food_distance(ant["position"])
+            pheromone_level = self.ant_swarm.pheromone_trail[tuple(ant["position"])]
+            state = (nearest_food_distance, pheromone_level, ant["has_food"])
+            states.append(state)
+        return states
+
+
 
     def render(self):
         self.ant_swarm.render()
