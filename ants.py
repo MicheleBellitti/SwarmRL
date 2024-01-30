@@ -240,7 +240,7 @@ class AntSwarm(Swarm):
         self.screen.blit(info_text, (5, 5))
 
         pygame.display.flip()
-        self.clock.tick(50)  # Control simulation speed
+        self.clock.tick(8)  # Control simulation speed
 
     def close(self):
         pygame.quit()
