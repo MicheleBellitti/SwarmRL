@@ -65,13 +65,15 @@ class AntEnvironment(SwarmEnvironment):
         return [self.get_reward(ant) for ant in self.ant_swarm.ants]
 
     def get_reward(self, ant):
-        if ant["has_food"] and np.array_equal(ant["position"], self.ant_swarm.nest_location):
-            ant["has_food"] = False
-            return 100  # Reward for delivering food
+        if ant["has_food"]:
+            if np.array_equal(ant["position"], self.ant_swarm.nest_location):
+                ant["has_food"] = False
+                return 100  # Reward for delivering food
+            else:
+                return 25 # Reward for finding food
         elif ant["has_food"] and self.ant_swarm.pheromone_trail[tuple(ant["position"])] > 0:
             return 50  # Increased reward for finding food following pheromone trail
-        elif self.ant_swarm.pheromone_trail[tuple(ant["position"])] > 0:
-            return 5  # Reward for following pheromone trail
+        
         return -0.05  # Small penalty to encourage exploration
 
     def check_if_done(self):

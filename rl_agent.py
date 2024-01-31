@@ -13,11 +13,17 @@ class RLAlgorithm(ABC):
         pass
 
 
+
 class QLearning(RLAlgorithm):
     def __init__(
-        self, n_states, n_actions, learning_rate=0.1, gamma=0.95, epsilon=0.5
+        self, n_states, n_actions, learning_rate=0.1, gamma=0.95, epsilon=0.5, seed=42
     ):
-        self.q_table = np.ones((n_states, n_actions))
+        # Set the seed if provided
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Initialize Q-table with random values
+        self.q_table = np.random.rand(n_states, n_actions)
         self.n_actions = n_actions
         self.lr = learning_rate
         self.gamma = gamma
@@ -35,7 +41,7 @@ class QLearning(RLAlgorithm):
 
         return action
     def update_epsilon(self, episode):
-        self.epsilon = max(0.01, self.epsilon * (0.9 ** episode))  # Exponential decay
+        self.epsilon = max(0.1, self.epsilon * (0.75 ** episode))  # Exponential decay
     def state_to_index(self, state):
         distance_to_food, pheromone_level, has_food = state
 

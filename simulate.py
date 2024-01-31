@@ -19,7 +19,7 @@ if __name__ == "__main__":
         num_states=10* 3 * 2,
         grid_size=50,
         num_ants=100,
-        num_food_sources=5,
+        num_food_sources=20,
         max_food_per_source=100
     )
     # ant_env.render()
@@ -32,15 +32,15 @@ if __name__ == "__main__":
 
     # Create and run the RL trainer
     trainer = RLTrainer(AntEnvironment, QLearning)
-    configs = [config1, config2, config3, config4, config5]
-    for config in configs:
+    configs = [config1, config2, config3, config4]
+    for i, config in enumerate(configs):
         start_time = time.time()
         
-        results = trainer.train(config, episodes=200)
+        results = trainer.train(config, episodes=150)
         
         end = time.time() - start_time
         print("Experiment time: ", end)
-        trainer.analyze_results(results)
+        trainer.analyze_results(results, i)
             
     for i, agent in enumerate(agents):
         
