@@ -15,11 +15,12 @@ if __name__ == "__main__":
 
     # Initialize the ant environment
     ant_env = AntEnvironment(
-        num_actions=4,
-        num_states=50 * 50 * 2,
+        num_actions=3,
+        num_states=10* 3 * 2,
         grid_size=50,
-        num_ants=20,
+        num_ants=100,
         num_food_sources=5,
+        max_food_per_source=100
     )
     # ant_env.render()
     # Get the number of states and actions

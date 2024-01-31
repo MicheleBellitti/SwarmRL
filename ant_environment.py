@@ -12,6 +12,7 @@ class AntEnvironment(SwarmEnvironment):
         grid_size,
         num_ants,
         num_food_sources,
+        max_food_per_source,
         **rl_params
     ):
         # Store RL parameters for later use (if needed)
@@ -19,7 +20,7 @@ class AntEnvironment(SwarmEnvironment):
 
         # Initialize AntSwarm with only the relevant parameters
         self.ant_swarm = AntSwarm(
-            grid_size=grid_size, num_ants=num_ants, num_food_sources=num_food_sources
+            grid_size=grid_size, num_ants=num_ants, num_food_sources=num_food_sources, max_food_per_source=max_food_per_source
         )
 
         self.num_actions = num_actions
