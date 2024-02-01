@@ -1,5 +1,5 @@
 from ant_environment import AntEnvironment
-from rl_agent import QLearning
+from rl_agent import QLearningAgent
 from rl_trainer import RLTrainer
 
 # keep track of time of completion
@@ -28,10 +28,10 @@ if __name__ == "__main__":
     n_actions = ant_env.num_actions
 
     # Create RL agents
-    agents = [QLearning(n_states, n_actions) for _ in range(ant_env.ant_swarm.num_ants)]
+    agents = [QLearningAgent(n_states, n_actions) for _ in range(ant_env.ant_swarm.num_ants)]
 
     # Create and run the RL trainer
-    trainer = RLTrainer(AntEnvironment, QLearning)
+    trainer = RLTrainer(AntEnvironment, QLearningAgent)
     configs = [config1, config2, config3, config4]
     for i, config in enumerate(configs):
         start_time = time.time()

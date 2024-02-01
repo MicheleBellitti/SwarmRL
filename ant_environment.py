@@ -47,16 +47,18 @@ class AntEnvironment(SwarmEnvironment):
         done = self.check_if_done()
         return next_state, rewards, done
 
+
     def apply_action(self, ant, action):
         # Apply the action to the ant
         # actions: 0 = move randomly, 1 = follow pheromone trail, 2 = return to nest
-        
-        # check if action is possible, otherwise deafult is random walk
+
+        # check if action is possible, otherwise default is random walk
         if ant["has_food"] and action != 2:
             action = 2
         if action == 2 and not ant["has_food"]:
             action = 0
         self.ant_swarm.move_ant(ant, action)
+
         
 
     def calculate_rewards(self):

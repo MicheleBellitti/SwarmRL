@@ -1,5 +1,7 @@
 import numpy as np
 import pygame
+import pygame_gui
+import math
 import random
 from environment import Swarm
 
@@ -19,15 +21,28 @@ class AntSwarm(Swarm):
         self.num_food_sources = num_food_sources
         self.max_food_per_source = max_food_per_source
         self.init_environment()
+        self.simulation_speed = 8
 
         # Pygame initialization
         pygame.init()
-        self.screen = pygame.display.set_mode(
-            (grid_size * cell_size, grid_size * cell_size)
-        )
+        self.screen = pygame.display.set_mode((self.grid_size * self.cell_size, self.grid_size * self.cell_size))
         pygame.display.set_caption("Ant Swarm Simulation")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(None, 24)
+
+        self.ui_manager = pygame_gui.UIManager((800, 600))
+        self.speed_slider = pygame_gui.elements.UIHorizontalSlider(
+            relative_rect=pygame.Rect((350, 550), (100, 20)),
+            start_value=self.simulation_speed,
+            value_range=(1, 20),
+            manager=self.ui_manager
+        )
+
+    def handle_events(self, event):
+        if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
+            if event.ui_element == self.speed_slider:
+                self.simulation_speed = int(self.speed_slider.get_current_value())
+
 
     def init_environment(self):
         self.food_sources = {
@@ -129,7 +144,7 @@ class AntSwarm(Swarm):
 
         if min_distance == float('inf'):
             # No food sources available, return a default high value
-            return 100  # You can adjust this value as needed
+            return self.grid_size*math.sqrt(2)  # You can adjust this value as needed
 
         return min_distance
 
@@ -181,16 +196,75 @@ class AntSwarm(Swarm):
     def render(self):
         self.screen.fill((250, 250, 210))  # Light background
 
-        # Draw pheromone trails
+        # Enhanced Draw pheromone trails
+        self.draw_pheromone_trails()
+
+        # Draw food sources, nest, ants, and display info
+        self.draw_food_sources()
+        self.draw_nest()
+        self.draw_ants()
+        self.display_info()
+
+        pygame.display.flip()
+        self.clock.tick(self.simulation_speed)
+        time_delta = self.clock.tick(60)/1000.0
+        self.ui_manager.update(time_delta)
+        self.ui_manager.draw_ui(self.screen)
+        
+    def draw_food_sources(self):
+        for food_position, _ in self.food_sources.items():
+            pygame.draw.rect(
+                self.screen,
+                (34, 139, 34),  # Dark green color for food
+                (
+                    food_position[0] * self.cell_size,
+                    food_position[1] * self.cell_size,
+                    self.cell_size,
+                    self.cell_size,
+                ),
+            )
+
+    def draw_nest(self):
+        pygame.draw.rect(
+            self.screen,
+            (178, 34, 34),  # Red color for the nest
+            (
+                self.nest_location[0] * self.cell_size,
+                self.nest_location[1] * self.cell_size,
+                self.cell_size,
+                self.cell_size,
+            ),
+        )
+
+    def draw_ants(self):
+        for ant in self.ants:
+            ant_color = (139, 69, 19) if ant["has_food"] else (0, 0, 0)  # Brown or black for ants
+            pygame.draw.circle(
+                self.screen,
+                ant_color,
+                (
+                    int(ant["position"][0] * self.cell_size + self.cell_size // 2),
+                    int(ant["position"][1] * self.cell_size + self.cell_size // 2),
+                ),
+                self.cell_size // 3,
+            )
+
+    def display_info(self):
+        info_text = self.font.render(
+            f"Food Collected: {self.food_collected}", True, (0, 0, 0)
+        )
+        self.screen.blit(info_text, (5, 5))
+    def draw_pheromone_trails(self):
         max_trail = np.max(self.pheromone_trail)
         if max_trail > 0:
             for x in range(self.grid_size):
                 for y in range(self.grid_size):
                     intensity = self.pheromone_trail[x, y] / max_trail
                     if intensity > 0:
+                        color = self.get_pheromone_color(intensity)
                         pygame.draw.rect(
                             self.screen,
-                            (int(220*intensity), 220, 220, intensity * 255),
+                            color,
                             (
                                 x * self.cell_size,
                                 y * self.cell_size,
@@ -199,51 +273,13 @@ class AntSwarm(Swarm):
                             ),
                         )
 
-        # Draw food sources
-
-        for food_position, quantity in self.food_sources.items():
-            food_pos_x, food_pos_y = food_position
-            pygame.draw.rect(
-                self.screen,
-                (34, 139, 34),
-                (
-                    food_pos_x * self.cell_size,
-                    food_pos_y * self.cell_size,
-                    self.cell_size,
-                    self.cell_size,
-                ),
-            )  # Dark green squares for food
-
-        # Draw nest
-        pygame.draw.rect(
-            self.screen,
-            (178, 34, 34),
-            (*self.nest_location * self.cell_size, self.cell_size, self.cell_size),
-        )  # Red square for nest
-
-        # Draw ants
-        for ant in self.ants:
-            ant_color = (
-                (139, 69, 19) if ant["has_food"] else (0, 0, 0)
-            )  # Brown for ants with food, black otherwise
-            pygame.draw.circle(
-                self.screen,
-                ant_color,
-                ant["position"] * self.cell_size + self.cell_size // 2,
-                self.cell_size // 3,
-            )
-
-        # Display info
-        info_text = self.font.render(
-            f"Food Collected: {self.food_collected}", True, (0, 0, 0)
-        )
-        self.screen.blit(info_text, (5, 5))
-
-        pygame.display.flip()
-        self.clock.tick(8)  # Control simulation speed
+    def get_pheromone_color(self, intensity):
+        # Improved color gradient for pheromone trails
+        # Gradient from red to yellow
+        return (255, 255 - int(255 * intensity), 0)
 
     def close(self):
-        pygame.quit()
+        pygame.quit()   
 
 
 # Usage example

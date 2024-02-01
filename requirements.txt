@@ -1,7 +1,10 @@
 numpy
 matplotlib
 scipy
-tensorflow
+flask
+flask-cors
+pandas
+dash
 torch
 RLlib
 pyNetLogo

@@ -1,20 +1,61 @@
 import numpy as np
-import pprint
 from abc import ABC, abstractmethod
+# from ray.rllib.agents import ppo
 
+class RLAgent(ABC):
+    """
+    Abstract base class for reinforcement learning agents.
+    """
 
-class RLAlgorithm(ABC):
     @abstractmethod
-    def learn(self, *args, **kwargs):
+    def choose_action(self, observation):
+        """
+        Choose an action based on the given observation.
+
+        Parameters:
+        observation: The current observation of the agent.
+
+        Returns:
+        int: The action chosen by the agent.
+        """
         pass
 
     @abstractmethod
-    def choose_action(self, *args, **kwargs):
+    def learn(self, state, action, reward, next_state):
+        """
+        Update the agent's knowledge based on the experience.
+
+        Parameters:
+        state: The initial state.
+        action: The action taken.
+        reward: The reward received.
+        next_state: The state reached after the action.
+        """
         pass
 
 
-
-class QLearning(RLAlgorithm):
+''' class PPOAgent(RLAgent):
+    def __init__(self, env_config):
+        self.agent = ppo.PPOTrainer(env=env_config)
+        
+    def train(self):
+        return self.agent.train()
+    def learn(self, state, action, reward, next_state):
+        self.agent.train()
+        # self.agent.learn(state, action, reward, next_state)
+    def get_policy(self):
+        return self.agent.get_policy()
+    
+    def compute_action(self, observation):
+        return self.agent.compute_action(observation)
+    
+    def choose_action(self, observation):
+        return self.compute_action(observation)
+    '''
+class QLearningAgent(RLAgent):
+    """
+    An agent that implements the Q-learning algorithm.
+    """
     def __init__(
         self, n_states, n_actions, learning_rate=0.1, gamma=0.95, epsilon=0.5, seed=42
     ):
@@ -41,7 +82,7 @@ class QLearning(RLAlgorithm):
 
         return action
     def update_epsilon(self, episode):
-        self.epsilon = max(0.1, self.epsilon * (0.75 ** episode))  # Exponential decay
+        self.epsilon = max(0.1, self.epsilon * (0.9 ** episode))  # Exponential decay
     def state_to_index(self, state):
         distance_to_food, pheromone_level, has_food = state
 
