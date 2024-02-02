@@ -27,7 +27,7 @@ pip install -r requirements.txt
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/SwarmRL.git
+   git clone https://github.com/MicheleBellitti/SwarmRL.git
    cd SwarmRL
     ```
 
