@@ -2,7 +2,7 @@
 
 SwarmRL is an innovative simulation platform that explores the application of reinforcement learning algorithms within swarm intelligence scenarios. This project aims to model complex behaviors seen in natural systems through advanced computational techniques, providing insights and tools for researchers and enthusiasts alike.
 
-<img src="media/simulation-screen.png" alt="Swarm Simulation Example" width="50%" height="50%">
+<img src="media/simulation-screen.png" alt="Swarm Simulation Example" width="40%" height="40%">
 
 ## Features
 
