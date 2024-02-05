@@ -5,7 +5,7 @@ import math
 import random
 from environment import Swarm
 
-
+k = 0.01
 class AntSwarm(Swarm):
     def __init__(
         self,
@@ -69,7 +69,15 @@ class AntSwarm(Swarm):
             if ant["has_food"] and np.array_equal(ant["position"], self.nest_location):
                 ant["has_food"] = False
                 self.food_collected += 1
-        self.pheromone_trail *= 0.97  # Pheromone evaporation
+        # Pheromone evaporation
+        decay_factor = np.exp(-k)  # Calculate decay factor using your chosen k value
+        threshold = 0.01  # Set a threshold below which pheromone levels are considered zero
+
+        # Apply exponential decay
+        self.pheromone_trail *= decay_factor
+
+        # Apply thresholding
+        self.pheromone_trail[self.pheromone_trail < threshold] = 0
         self.diffuse_pheromones()
 
     def diffuse_pheromones(self):
