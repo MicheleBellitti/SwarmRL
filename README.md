@@ -2,7 +2,7 @@
 
 SwarmRL is an innovative simulation platform that explores the application of reinforcement learning algorithms within swarm intelligence scenarios. This project aims to model complex behaviors seen in natural systems through advanced computational techniques, providing insights and tools for researchers and enthusiasts alike.
 
-![Swarm Simulation Example](media/simulation-screen.png)
+<img src="media/simulation-screen.png" alt="Swarm Simulation Example" width="40%" height="40%">
 
 ## Features
 
@@ -27,7 +27,7 @@ pip install -r requirements.txt
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/SwarmRL.git
+   git clone https://github.com/MicheleBellitti/SwarmRL.git
    cd SwarmRL
     ```
 
