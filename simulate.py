@@ -8,27 +8,24 @@ import pygame
 import pygame_gui
 from params import *
 import pandas as pd
-
+import random
 # To run the interface
 if __name__ == "__main__":
     start_time = time.time()
 
-    # Initialize the ant environment
-    ant_env = AntEnvironment(
-        num_actions=3,
-        num_states=10* 3 * 2,
-        grid_size=50,
-        num_ants=100,
-        num_food_sources=20,
-        max_food_per_source=100
-    )
-    # ant_env.render()
+    # Initialize the environment
+    n_ants = config1["num_ants"]
+    n_actions=config1["num_actions"]
+    n_states=config1["num_states"]
+    grid_size=config1["grid_size"]
+    num_food_sources=config1["num_food_sources"]
+    max_food_per_source=config1["max_food_per_source"]
+    
     # Get the number of states and actions
-    n_states = ant_env.num_states
-    n_actions = ant_env.num_actions
+    random.seed(time.time())
 
     # Create RL agents
-    agents = [QLearningAgent(n_states, n_actions) for _ in range(ant_env.ant_swarm.num_ants)]
+    agents = [QLearningAgent(n_states, n_actions) for _ in range(n_ants)]
 
     # Create and run the RL trainer
     trainer = RLTrainer(AntEnvironment, QLearningAgent)

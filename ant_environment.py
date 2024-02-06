@@ -39,7 +39,7 @@ class AntEnvironment(SwarmEnvironment):
             self.apply_action(ant, action)
 
         # Update the ant swarm for a time step
-        self.ant_swarm.step()
+        self.ant_swarm.step(learning=False)
 
         # Return the next state and rewards
         next_state = self.get_state()
@@ -50,13 +50,13 @@ class AntEnvironment(SwarmEnvironment):
 
     def apply_action(self, ant, action):
         # Apply the action to the ant
-        # actions: 0 = move randomly, 1 = follow pheromone trail, 2 = return to nest
+        # actions: 0 = move randomly, 1 = follow pheromone trail, 2 = drop pheromone and return to nest, 3 = return to nest only
 
         # check if action is possible, otherwise default is random walk
-        if ant["has_food"] and action != 2:
-            action = 2
-        if action == 2 and not ant["has_food"]:
-            action = 0
+        if not ant["has_food"] and action > 1:
+                action = 0
+        if ant["has_food"] and action <=1:
+            action = 3
         self.ant_swarm.move_ant(ant, action)
 
         
