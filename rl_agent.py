@@ -116,8 +116,8 @@ class QLearningAgent(RLAgent):
         new_q = (1 - self.lr) * current_q - self.lr * (
             reward + self.gamma * max_future_q
         )
-        print(f"Before q_val: {self.q_table[state_index, action]}")
+        #print(f"Before q_val: {self.q_table[state_index, action]}")
         self.q_table[state_index, action] = new_q
-        print(f"After q_val: {self.q_table[state_index, action]}")
-        print(f"Learning: S={state}, A={action}, R={reward}, S'={next_state}")
+        # print(f"After q_val: {self.q_table[state_index, action]}")
+        # print(f"Learning: S={state}, A={action}, R={reward}, S'={next_state}")
         

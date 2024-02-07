@@ -6,8 +6,7 @@ import math
 import random
 from environment import Swarm
 
-k = 0.3
-k = 0.3
+k = 0.25
 
 
 class AntSwarm(Swarm):
@@ -159,15 +158,7 @@ class AntSwarm(Swarm):
 
     def search_food(self, ant, move_direction=None):
         # Determine the probability of following the pheromone trail
-        """follow_pheromone_prob = self.calculate_pheromone_follow_probability(
-            ant["position"]
-        )
-
-        if np.random.uniform(0, 1) < follow_pheromone_prob:
-            # Follow pheromone trail
-            move_direction = self.choose_direction_based_on_pheromone(ant["position"])
-        else:
-            # Random walk"""
+        
         move_direction = np.random.choice(range(4))
 
         # Update ant's position
@@ -207,21 +198,35 @@ class AntSwarm(Swarm):
         return min(1.0, pheromone_level / max_pheromone_level)
 
     def choose_direction_based_on_pheromone(self, position):
-        # Choose a direction based on the surrounding pheromone levels
-        # Check pheromone levels in adjacent cells
-        pheromone_levels = [
-            self.pheromone_trail[
-                tuple(np.clip(position + direction, 0, self.grid_size - 1))
-            ]
-            for direction in self.directions
-        ]
-        # Probabilistically choose a direction based on pheromone levels
-        total_pheromone = sum(pheromone_levels)
-        if total_pheromone > 0:
-            probabilities = [level / total_pheromone for level in pheromone_levels]
-            return np.random.choice(range(4), p=probabilities)
-        else:
+        # Find the cell with the highest pheromone level in the environment
+        max_pheromone_level = np.max(self.pheromone_trail)
+        if max_pheromone_level == 0:
+            # If there is no pheromone, choose a random direction
             return np.random.choice(range(4))
+        
+        # Get the position of the cell with the highest pheromone level
+        max_pheromone_positions = np.argwhere(self.pheromone_trail == max_pheromone_level)
+        
+        # Choose the closest cell with the highest pheromone level
+        ant_position = np.array(position)
+        distances = np.linalg.norm(max_pheromone_positions - ant_position, axis=1)
+        closest_max_pheromone_position = max_pheromone_positions[np.argmin(distances)]
+        
+        # Determine the direction to move towards the chosen pheromone cell
+        direction_vector = closest_max_pheromone_position - ant_position
+        direction_vector = np.clip(direction_vector, -1, 1)  # Limit to one step in any direction
+        
+        # Convert the direction vector to a direction index (0, 1, 2, 3)
+        direction_mapping = {
+            (0, 1): 0,  # Up
+            (1, 0): 1,  # Right
+            (0, -1): 2, # Down
+            (-1, 0): 3  # Left
+        }
+        return direction_mapping.get(tuple(direction_vector), np.random.choice(range(4)))
+        
+
+
 
     def check_for_food_at_new_position(self, ant):
         ant_pos = np.array([ant["position"][0] * self.cell_size + self.cell_size // 2, ant["position"][1] * self.cell_size + self.cell_size // 2])

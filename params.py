@@ -1,4 +1,5 @@
 config1 = {
+    "episodes": 60,  # A moderate number of episodes to ensure learning but not excessive training time.
     "num_actions": 4,
     "num_states": 10*5*2,
     "grid_size": 30,  # Intermediate size to provide room for exploration but not too large for excessive travel time.
@@ -13,6 +14,7 @@ config1 = {
 }
 
 config2 = {
+    "episodes": 25,
     "num_actions": 4,
     "num_states": 10*5*2,
     "grid_size": 20,
@@ -25,6 +27,7 @@ config2 = {
     "num_agents": 30,
 }
 config3 = {
+    "episodes": 40,
     "num_actions": 4,
     "num_states": 10*5*2,
     "grid_size": 25,
@@ -38,6 +41,7 @@ config3 = {
 }
 
 config4 = {
+    "episodes": 100,
     "num_actions": 4,
     "num_states": 10*5*2,
     "grid_size": 60,

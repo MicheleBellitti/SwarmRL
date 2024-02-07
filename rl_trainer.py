@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import time
 
 
 # utility function
@@ -15,24 +16,60 @@ class RLTrainer:
     def __init__(self, environment_class, agent_class):
         self.environment_class = environment_class
         self.agent_class = agent_class
+        self._state = "stopped"  # Possible states: stopped, running, paused
+        self.config = None
+        self.episodes = 0
+        self.current_episode = 0
+        self.results = []
+        
+
+    def set_state(self, state):
+        """Set the simulation's state."""
+        self._state = state
+
+    def get_state(self):
+        """Return the current state of the simulation."""
+        return {
+            "state": self._state,
+            "current_episode": self.current_episode,
+            "total_episodes": self.episodes,
+            "latest_results": self.results[-1] if self.results else {}
+        }
 
     def train(self, config, episodes):
-        environment = self.environment_class(**config)
-        agents = [
-            self.agent_class(environment.num_states, environment.num_actions)
-            for _ in range(config["num_agents"])
-        ]
-        experiment_results = []
-        for episode in range(episodes):
-            # Run the episode and collect data
-            episode_data = self.run_episode(environment, agents, max_steps=20)
-            experiment_results.append(episode_data)
-            print(f"Episode {episode + 1}/{episodes} complete")
-            # Update the epsilon value
-            for agent in agents:
-                agent.update_epsilon(episode)
+        """Train the simulation with given configuration and number of episodes."""
+        self.config = config
+        self.episodes = episodes
+        self.current_episode = 0
+        self.results = []
+        self._state = "running"
 
-        return pd.DataFrame(experiment_results)
+        # Create the environment and agents
+        self.environment = self.environment_class(**self.config)
+        agents = [self.agent_class(self.environment.num_states, self.environment.num_actions) for _ in range(config["num_agents"])]
+
+        while self.current_episode < episodes and self._state != "stopped":
+            
+            
+            self.environment.running_state = self._state
+            if self._state == "paused":
+                time.sleep(0.1)  # Sleep briefly to reduce CPU usage while paused
+                
+                continue  # Skip the rest of the loop and check the state again
+
+            # Run the episode and collect data
+            episode_data = self.run_episode(self.environment, agents, max_steps=20)
+            self.results.append(episode_data)
+            print(f"Episode {self.current_episode + 1}/{episodes} complete")
+            self.current_episode += 1
+
+            # Update the epsilon value for agents
+            for agent in agents:
+                agent.update_epsilon(self.current_episode)
+
+        self._state = "stopped"
+        return pd.DataFrame(self.results)
+
 
     def run_episode(self, environment, agents, max_steps):
         done = False
@@ -53,7 +90,14 @@ class RLTrainer:
         pheromone_usage_count = 0  # Counter to keep track of pheromone trail usage
         agent_rewards = np.zeros(len(agents))
         for step in range(max_steps):
-            if done:
+            # print(self._state)
+            while self._state == "paused":
+                        time.sleep(0.1)  # Sleep to reduce CPU usage while paused
+                        continue  # Remain in pause loop until state changes
+
+
+            states = environment.get_state()
+            if done or self._state == "stopped":
                 break
 
             actions = [
@@ -81,7 +125,7 @@ class RLTrainer:
             episode_data["steps"] += 1
 
         # Final calculations for the episode
-        top_indices = np.argsort(agent_rewards)[-10:]
+        top_indices = np.argsort(agent_rewards)[-5:]
 
         episode_data["food_collected"] = environment.ant_swarm.food_collected
         episode_data["total_reward"] = sum(agent_rewards[top_indices])

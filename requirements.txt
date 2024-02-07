@@ -2,6 +2,8 @@ numpy
 matplotlib
 scipy
 flask
+flask-socketio
+flask-restful
 flask-cors
 pandas
 dash

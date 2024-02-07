@@ -1,44 +1,65 @@
+import time
+import random
+from threading import Thread, Event
 from ant_environment import AntEnvironment
 from rl_agent import QLearningAgent
 from rl_trainer import RLTrainer
-
-# keep track of time of completion
-import time
-import pygame
-import pygame_gui
 from params import *
-import pandas as pd
-import random
-# To run the interface
+
+class SimulationManager:
+    def __init__(self):
+        self.configs = [config1, config2, config3, config4]
+        self.current_config_index = 0
+        self.trainer = None
+        self.state = "stopped"  # Possible states: stopped, running, paused
+
+    def start(self):
+        if self.state in ["running", "paused"]:
+            print("Simulation is already running or paused.")
+            return
+        
+        self.state = "running"
+        self.run_simulation()
+
+    def run_simulation(self):
+        config = self.configs[self.current_config_index]
+        self.trainer = RLTrainer(AntEnvironment, QLearningAgent)
+        n_ants = config["num_ants"]
+        n_states = config["num_states"]
+        n_actions = config["num_actions"]
+        # agents = [QLearningAgent(n_states, n_actions) for _ in range(n_ants)]
+
+        self.trainer.train(config, config["episodes"])
+        
+
+    def pause(self):
+        if self.state != "running":
+            print("Simulation is not running.")
+            return
+        self.state = "paused"
+        self.trainer.set_state(self.state)
+
+    def resume(self):
+        if self.state != "paused":
+            print("Simulation is not paused.")
+            return
+        
+        self.state = "running"
+        self.trainer.set_state(self.state)
+
+    def quit(self):
+        
+        self.state = "stopped"
+        self.trainer.set_state(self.state)
+        
+
+    def get_state(self):
+        # Implement fetching the current state of the simulation
+        
+        return {"state": self.state}
+
+# Example usage
 if __name__ == "__main__":
-    start_time = time.time()
-
-    # Initialize the environment
-    n_ants = config1["num_ants"]
-    n_actions=config1["num_actions"]
-    n_states=config1["num_states"]
-    grid_size=config1["grid_size"]
-    num_food_sources=config1["num_food_sources"]
-    max_food_per_source=config1["max_food_per_source"]
+    sim_manager = SimulationManager()
+    sim_manager.start()  # Start the simulation
     
-    # Get the number of states and actions
-    random.seed(time.time())
-
-    # Create RL agents
-    agents = [QLearningAgent(n_states, n_actions) for _ in range(n_ants)]
-
-    # Create and run the RL trainer
-    trainer = RLTrainer(AntEnvironment, QLearningAgent)
-    configs = [config1, config2, config3, config4]
-    for i, config in enumerate(configs):
-        start_time = time.time()
-        
-        results = trainer.train(config, episodes=150)
-        
-        end = time.time() - start_time
-        print("Experiment time: ", end)
-        trainer.analyze_results(results, i)
-            
-    for i, agent in enumerate(agents):
-        
-        print(f"Agent {i}: {agent.q_table}")
