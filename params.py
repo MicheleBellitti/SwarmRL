@@ -48,8 +48,8 @@ config4 = {
     "num_ants": 200,
     "num_food_sources": 4,
     "max_food_per_source": 100,
-    "learning_rate": 0.1,
-    "gamma": 0.5,
+    "learning_rate": 0.001,
+    "gamma": 0.95,
     "epsilon": 0.995,
-    "num_agents": 100,
+    "num_agents": 100
 }

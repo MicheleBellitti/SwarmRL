@@ -33,7 +33,7 @@ class AntSwarm(Swarm):
         self.food_cell_size = 10
 
         # Pygame initialization
-        pygame.init()
+        
         self.screen = pygame.display.set_mode(
             (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
         )

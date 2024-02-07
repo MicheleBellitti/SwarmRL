@@ -5,12 +5,13 @@ from ant_environment import AntEnvironment
 from rl_agent import QLearningAgent
 from rl_trainer import RLTrainer
 from params import *
+import pygame
 
 class SimulationManager:
     def __init__(self):
         self.configs = [config1, config2, config3, config4]
-        self.current_config_index = 0
-        self.trainer = None
+        self.current_config_index = 3
+        self.trainer = RLTrainer(AntEnvironment, QLearningAgent)
         self.state = "stopped"  # Possible states: stopped, running, paused
 
     def start(self):
@@ -19,7 +20,7 @@ class SimulationManager:
             return
         
         self.state = "running"
-        self.run_simulation()
+        return self.run_simulation()
 
     def run_simulation(self):
         config = self.configs[self.current_config_index]
@@ -29,8 +30,9 @@ class SimulationManager:
         n_actions = config["num_actions"]
         # agents = [QLearningAgent(n_states, n_actions) for _ in range(n_ants)]
 
-        self.trainer.train(config, config["episodes"])
-        
+        results = self.trainer.train(config, config["episodes"])
+        print(results.head())
+        return results
 
     def pause(self):
         if self.state != "running":
@@ -60,6 +62,8 @@ class SimulationManager:
 
 # Example usage
 if __name__ == "__main__":
+    pygame.init()
     sim_manager = SimulationManager()
-    sim_manager.start()  # Start the simulation
+    df = sim_manager.start()  # Start the simulation
+    sim_manager.trainer.analyze_results(df, sim_manager.current_config_index)
     
