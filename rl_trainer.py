@@ -1,15 +1,51 @@
+from typing import Optional
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import math
 import time
+import seaborn as sns
+from plotly import graph_objects as go
+import plotly.figure_factory as ff
 
 
-# utility function
+# utility functions
 def moving_average(data, window_size):
     """Computes moving average using discrete linear convolution of two one-dimensional sequences."""
     window = np.ones(int(window_size)) / float(window_size)
     return np.convolve(data, window, "valid")
+
+
+def plot_top_agents_q_tables(agents: list, top_n=3):
+    """
+    Plots the Q-table heatmaps of the top N agents based on their performance.
+
+    Parameters:
+    - agents: List of agents. Each agent should have a `q_table` attribute and a performance metric attribute.
+    - top_n: Number of top agents to plot. Default is 3.
+    """
+
+    # Sort agents based on a performance metric, e.g., cumulative_reward
+    # This assumes each agent has a `cumulative_reward` attribute for simplicity
+    top_agents = sorted(agents, key=lambda agent: agent.q_table.sum(), reverse=True)[
+        :top_n
+    ]
+
+    for i, agent in enumerate(top_agents, start=1):
+        # Convert the Q-table to a DataFrame for better labeling (optional)
+        states = [f"State {i}" for i in range(agent.q_table.shape[0])]
+        actions = [f"Action {i}" for i in range(agent.q_table.shape[1])]
+        q_table_df = pd.DataFrame(agent.q_table, index=states, columns=actions)
+
+        fig = ff.create_annotated_heatmap(
+        z=q_table_df.values, 
+        x=list(q_table_df.columns), 
+        y=list(q_table_df.index),
+        annotation_text=np.around(q_table_df.values, decimals=2),
+        colorscale='Viridis',
+        showscale=True)
+        fig.update_layout(width=1000, height=800, title_text='Interactive Heatmap of Q-table')
+        fig.show()
 
 
 class RLTrainer:
@@ -21,6 +57,7 @@ class RLTrainer:
         self.episodes = 0
         self.current_episode = 0
         self.results = []
+        # self.done = False
         
 
     def set_state(self, state):
@@ -48,8 +85,10 @@ class RLTrainer:
         self.environment = self.environment_class(**self.config)
         agents = [self.agent_class(self.environment.num_states, self.environment.num_actions) for _ in range(config["num_agents"])]
 
-        while self.current_episode < episodes and self._state != "stopped":
-            
+        while self.current_episode < episodes:
+            if self._state == "stopped":
+                plot_top_agents_q_tables(agents)
+                return pd.DataFrame(self.results)
             
             self.environment.running_state = self._state
             if self._state == "paused":
@@ -58,7 +97,7 @@ class RLTrainer:
                 continue  # Skip the rest of the loop and check the state again
 
             # Run the episode and collect data
-            episode_data = self.run_episode(self.environment, agents, max_steps=20)
+            episode_data = self.run_episode(self.environment, agents, max_steps=50)
             self.results.append(episode_data)
             print(f"Episode {self.current_episode + 1}/{episodes} complete")
             self.current_episode += 1
@@ -68,6 +107,7 @@ class RLTrainer:
                 agent.update_epsilon(self.current_episode)
 
         self._state = "stopped"
+        plot_top_agents_q_tables(agents)
         return pd.DataFrame(self.results)
 
 
@@ -98,6 +138,7 @@ class RLTrainer:
 
             states = environment.get_state()
             if done or self._state == "stopped":
+                self._state = "stopped"
                 break
 
             actions = [
@@ -132,9 +173,10 @@ class RLTrainer:
         top_pheromone_usage_count = sum(
             (action == 1 and i in top_indices) for i, action in enumerate(actions)
         )
-        episode_data["pheromone_trail_usage"] = top_pheromone_usage_count / (
-            max_steps * len(top_indices)
+        episode_data["pheromone_trail_usage"] = pheromone_usage_count / (
+            max_steps * len(agents)
         )
+        
         return episode_data
 
     def analyze_results(self, results, idx):
