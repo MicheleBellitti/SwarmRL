@@ -1,6 +1,6 @@
 # SwarmRL: Reinforcement Learning in Swarm Intelligence
 
-<!--SwarmRL is an innovative simulation platform that explores the application of reinforcement learning algorithms within swarm intelligence scenarios. This project aims to model complex behaviors seen in natural systems through advanced computational techniques, providing insights and tools for researchers and enthusiasts alike.
+SwarmRL is a simulation project that explores the application of reinforcement learning algorithms within swarm intelligence scenarios, aiming at assessing the effectiveness of RL on multi-agent systems(MARL). It has been developed as the final project of the postgraduate’s course of Distributed Artifical Intelligence.
 
 <img src="media/simulation-screen.png" alt="Swarm Simulation Example" width="40%" height="40%">
 
@@ -14,7 +14,7 @@
 
 ### Prerequisites
 
-Ensure you have Python 3.8+ installed on your system. This project relies on several key Python libraries, including Flask, Dash, and RLlib.
+Ensure you have Python 3.8+ installed on your system. This project relies on several key Python libraries, including numpy, pandas, matplotlib, seaborn and plotly and pygame.
 
 Install the required dependencies using pip:
 
@@ -31,24 +31,11 @@ pip install -r requirements.txt
    cd SwarmRL
     ```
 
-<!-- 2. Run the application:
-
-   ```bash
-   python app/app.py
-   ``` -->
-3. or simply run the simulation for a quick demo:
+2. Run the simulation for a quick demo:
 
    ```bash
    python simulate.py
    ```
-
-<!-- Navigate to <http://localhost:5000> in your web browser to access the web application dashboard. >
-
-## Usage
-
-- Dashboard: Access the dashboard at /dashboard to interact with the simulation in real-time and view analytics.
-- Documentation: Comprehensive documentation is available at /documentation, detailing installation, usage, and API references.
-
 ## Future Enhancements
 
 - Algorithm Integration: Adding support for more reinforcement learning algorithms to explore a wider range of behaviors and scenarios.
