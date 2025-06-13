@@ -11,6 +11,8 @@ config1 = {
     "epsilon": 0.98,  # Start with full exploration.
     "epsilon_decay": 0.995,  # Apply decay to epsilon to shift towards exploitation over time.
     "num_agents": 25,  # Matching the number of ants.
+    "agent_type": "qlearning",
+    "max_steps_per_episode": 100
 }
 
 config2 = {
@@ -25,6 +27,8 @@ config2 = {
     "gamma": 0.95,
     "epsilon": 0.1,
     "num_agents": 30,
+    "agent_type": "qlearning",
+    "max_steps_per_episode": 100
 }
 config3 = {
     "episodes": 1000,
@@ -38,6 +42,8 @@ config3 = {
     "gamma": 0.5,
     "epsilon": 0.3,
     "num_agents": 30,
+    "agent_type": "sarsa",
+    "max_steps_per_episode": 100
 }
 
 config4 = {
@@ -52,4 +58,6 @@ config4 = {
     "gamma": 0.95,
     "epsilon": 0.995,
     "num_agents": 100,
+    "agent_type": "sarsa",
+    "max_steps_per_episode": 150
 }

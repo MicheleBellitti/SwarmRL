@@ -3,6 +3,8 @@ import numpy as np
 import pygame
 import pygame_gui
 import math
+from PIL import Image # Added for Streamlit visualization
+# numpy is already imported as np
 import random
 from environment import Swarm
 
@@ -38,20 +40,21 @@ class AntSwarmRL(Swarm):
             (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
         )
         pygame.display.set_caption("RL Ant Swarm Simulation")
-        self.clock = pygame.time.Clock()
+        self.clock = pygame.time.Clock() # Keep clock for potential non-streamlit uses or FPS calculation
         self.font = pygame.font.SysFont(None, 24)
+        self.latest_frame_image = None # For Streamlit
 
-    def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or (
-                event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
-            ):
-                self.close()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    self.simulation_speed += 1
-                if event.key == pygame.K_DOWN:
-                    self.simulation_speed -= 2
+    # def handle_events(self): # Removed - event handling will be separate or not used for Streamlit
+    #     for event in pygame.event.get():
+    #         if event.type == pygame.QUIT or (
+    #             event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+    #         ):
+    #             self.close()
+    #         if event.type == pygame.KEYDOWN:
+    #             if event.key == pygame.K_UP:
+    #                 self.simulation_speed += 1
+    #             if event.key == pygame.K_DOWN:
+    #                 self.simulation_speed -= 2
                 
     def compute_even_food_positions(self):
         positions = []
@@ -117,10 +120,19 @@ class AntSwarmRL(Swarm):
         self.init_environment()
 
     def step(self, learning=True):
-        self.handle_events()
+        # self.handle_events() # Removed event handling from step
         if learning:
-            for ant in self.ants:
-                self.move_ant(ant)
+            # This part is for RL context where 'move_ant' is called by AntEnvironment.apply_action
+            # For non-RL AntSwarm, move_ant might be called here.
+            # In AntSwarmRL context, self.move_ant is typically called by AntEnvironment based on agent actions.
+            # So, this loop might be redundant if AntEnvironment controls individual ant moves.
+            # However, if AntSwarmRL.step() is meant to be a self-contained step for all ants,
+            # then actions should be passed here or determined internally.
+            # Given AntEnvironment.step calls self.ant_swarm.step(learning=False), this 'learning' block
+            # is currently NOT executed when called from AntEnvironment.
+            # If it were, it would call self.move_ant(ant) without a specific action,
+            # which defaults to self.search_food(ant) - random movement.
+            pass # Ant movements are handled by AntEnvironment.apply_action then ant_swarm.move_ant
         for ant in self.ants:
             if ant["has_food"] and np.array_equal(ant["position"], self.nest_location):
                 ant["has_food"] = False
@@ -299,8 +311,24 @@ class AntSwarmRL(Swarm):
         self.draw_ants()
         self.display_info()
 
-        pygame.display.flip()
-        self.clock.tick(self.simulation_speed)
+        # pygame.display.flip() # Removed for Streamlit
+        # self.clock.tick(self.simulation_speed) # Removed for Streamlit
+
+    def capture_frame_for_streamlit(self):
+        self.render() # Ensure the screen is drawn
+        if self.screen:
+            rgb_array = pygame.surfarray.array3d(self.screen)
+            # Pygame surfaces are typically (width, height, channels).
+            # PIL/Pillow Images expect (height, width, channels).
+            # Transpose if necessary. It's often (1, 0, 2) for Pygame -> PIL.
+            try:
+                transposed_array = np.transpose(rgb_array, (1, 0, 2))
+                self.latest_frame_image = Image.fromarray(transposed_array)
+            except ValueError as e:
+                print(f"Error during surfarray transpose or Image.fromarray: {e}")
+                print(f"Original surfarray shape: {rgb_array.shape}")
+                # Fallback or error image if conversion fails
+                self.latest_frame_image = None # Or a placeholder error image
 
     def draw_pheromone_trails(self):
         # Assuming pheromone_trail is a 2D array with values indicating intensity
@@ -455,21 +483,22 @@ class AntSwarm(Swarm):
             (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
         )
         pygame.display.set_caption("Vanilla Ant Swarm Simulation")
-        self.clock = pygame.time.Clock()
+        self.clock = pygame.time.Clock() # Keep for non-Streamlit use
         self.font = pygame.font.SysFont(None, 24)
+        self.latest_frame_image = None # For Streamlit (if AntSwarm is used directly)
 
         
-    def handle_events(self):
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT or (
-                    event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
-                ):
-                    self.close()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
-                        self.simulation_speed += 1
-                    if event.key == pygame.K_DOWN:
-                        self.simulation_speed -= 2
+    # def handle_events(self): # Removed
+    #         for event in pygame.event.get():
+    #             if event.type == pygame.QUIT or (
+    #                 event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+    #             ):
+    #                 self.close()
+    #             if event.type == pygame.KEYDOWN:
+    #                 if event.key == pygame.K_UP:
+    #                     self.simulation_speed += 1
+    #                 if event.key == pygame.K_DOWN:
+    #                     self.simulation_speed -= 2
     def compute_even_food_positions(self):
         positions = []
         # Calculate the number of rows and columns in the grid that will evenly distribute the food sources
@@ -534,7 +563,7 @@ class AntSwarm(Swarm):
         self.init_environment()
 
     def step(self):
-        self.handle_events()
+        # self.handle_events() # Removed
         for ant in self.ants:
             self.move_ant(ant)
         for ant in self.ants:
@@ -707,8 +736,20 @@ class AntSwarm(Swarm):
         self.draw_ants()
         self.display_info()
 
-        pygame.display.flip()
-        self.clock.tick(self.simulation_speed)
+        # pygame.display.flip() # Removed
+        # self.clock.tick(self.simulation_speed) # Removed
+
+    def capture_frame_for_streamlit(self): # Added for consistency if AntSwarm used directly
+        self.render()
+        if self.screen:
+            rgb_array = pygame.surfarray.array3d(self.screen)
+            try:
+                transposed_array = np.transpose(rgb_array, (1, 0, 2))
+                self.latest_frame_image = Image.fromarray(transposed_array)
+            except ValueError as e:
+                print(f"Error during surfarray transpose or Image.fromarray: {e}")
+                self.latest_frame_image = None
+
 
     def draw_pheromone_trails(self):
         # Assuming pheromone_trail is a 2D array with values indicating intensity

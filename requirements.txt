@@ -8,12 +8,14 @@ flask-restful
 flask-cors
 pandas
 dash
-torch
-RLlib
+# torch # Temporarily removed to save space
+# RLlib # Commenting out as ray[rllib] is more standard
 pyNetLogo
 pygame
 pettingzoo
-ray[rllib]
+# ray[rllib] # Temporarily removed to save space
 pygame-gui
 gym
 gymnasium
+streamlit
+Pillow

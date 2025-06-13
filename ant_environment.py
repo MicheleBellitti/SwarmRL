@@ -1,6 +1,8 @@
 from environment import SwarmEnvironment
 from ants import AntSwarm, AntSwarmRL
 import numpy as np
+import pygame # For pygame.init()
+# from PIL import Image # Not directly used here, but AntSwarmRL uses it.
 
 
 # Define the environment for the ant swarm
@@ -15,6 +17,10 @@ class AntEnvironment(SwarmEnvironment):
         max_food_per_source,
         **rl_params
     ):
+        # Ensure Pygame is initialized
+        # It's generally safe to call pygame.init() multiple times.
+        pygame.init()
+
         # Store RL parameters for later use (if needed)
         self.rl_params = rl_params
 
@@ -95,7 +101,19 @@ class AntEnvironment(SwarmEnvironment):
         return states
 
     def render(self):
+        # This now calls the core drawing logic in AntSwarmRL without flip/tick
         self.ant_swarm.render()
+
+    def capture_frame_for_streamlit(self):
+        """Captures the current simulation frame from AntSwarmRL."""
+        self.ant_swarm.capture_frame_for_streamlit()
+
+    @property
+    def latest_frame_image(self):
+        """Provides access to the latest captured frame from AntSwarmRL."""
+        if self.ant_swarm:
+            return self.ant_swarm.latest_frame_image
+        return None
 
     def close(self):
         self.ant_swarm.close()
