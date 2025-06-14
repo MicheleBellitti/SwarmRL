@@ -17,12 +17,9 @@ class AntEnvironment(SwarmEnvironment):
         max_food_per_source,
         **rl_params
     ):
-        # Ensure Pygame is initialized
-        # It's generally safe to call pygame.init() multiple times.
-        pygame.init()
-
         # Store RL parameters for later use (if needed)
         self.rl_params = rl_params
+        visualize = self.rl_params.get("visualize", False)
 
         # Initialize AntSwarm with only the relevant parameters
         self.ant_swarm = AntSwarmRL(
@@ -30,6 +27,7 @@ class AntEnvironment(SwarmEnvironment):
             num_ants=num_ants,
             num_food_sources=num_food_sources,
             max_food_per_source=max_food_per_source,
+            visualize=visualize,
         )
 
         self.num_actions = num_actions

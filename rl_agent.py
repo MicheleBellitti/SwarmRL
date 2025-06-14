@@ -1,11 +1,33 @@
 import numpy as np
 from abc import ABC, abstractmethod
+import torch
+import torch.nn as nn
+from torch.distributions import Categorical
+import os
 # import ray # Removed as PPO is not currently supported due to dependency issues
 # from ray.rllib.algorithms.ppo import PPOConfig # Removed
 
 # # Initialize Ray once # Removed
 # ray.init(ignore_reinit_error=True)
 
+
+# Buffer for PPO
+class PPOBuffer:
+    def __init__(self):
+        self.actions = []
+        self.states = []
+        self.logprobs = []
+        self.rewards = []
+        self.dones = []
+        self.state_values = []
+
+    def clear(self):
+        del self.actions[:]
+        del self.states[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.dones[:]
+        del self.state_values[:]
 
 class RLAgent(ABC):
     """
@@ -49,97 +71,153 @@ class RLAgent(ABC):
         pass
 
 
-class PPOAgent(RLAgent):
-    def __init__(self, n_states=None, n_actions=None, agent_specific_config=None):
-        # agent_specific_config might contain RLLib specific settings,
-        # e.g., {"env": "CartPole-v1"}
-        # n_states and n_actions are part of RLAgent interface, might not be directly used by PPO
-        # if the environment is registered with RLLib and has its own space definitions.
-
-        if agent_specific_config is None:
-            # Default to CartPole-v1 if no specific config provided
-            # This is primarily for initial setup and testing Ray/RLLib integration
-            self.env_name = "CartPole-v1"
-            print(f"PPOAgent: agent_specific_config not provided, defaulting to env: {self.env_name}")
-        else:
-            self.env_name = agent_specific_config.get("env", "CartPole-v1")
-            print(f"PPOAgent: Initializing with env: {self.env_name}")
-
-        # Basic PPO configuration
-        config = (
-            PPOConfig()
-            .environment(env=self.env_name)
-            .framework("torch") # Or "tf"
-            .rollouts(num_rollout_workers=1) # Adjust as needed
+class ActorCritic(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim=64):
+        super(ActorCritic, self).__init__()
+        # Actor network
+        self.actor = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, action_dim),
+            nn.Softmax(dim=-1)
         )
+        # Critic network
+        self.critic = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, state):
+        raise NotImplementedError
+
+    def act(self, state):
+        action_probs = self.actor(state)
+        dist = Categorical(action_probs)
+        action = dist.sample()
+        action_logprob = dist.log_prob(action)
+        state_val = self.critic(state)
+        return action.detach(), action_logprob.detach(), state_val.detach()
+
+    def evaluate(self, state, action):
+        action_probs = self.actor(state)
+        dist = Categorical(action_probs)
+        action_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
+        state_values = self.critic(state)
+        return action_logprobs, state_values, dist_entropy
+
+
+class PPOAgent(RLAgent):
+    def __init__(self, n_states, n_actions, lr_actor=0.0003, lr_critic=0.001, gamma=0.99, K_epochs=4, eps_clip=0.2, **kwargs):
+        self.gamma = gamma
+        self.eps_clip = eps_clip
+        self.K_epochs = K_epochs
         
-        # For discrete action spaces like CartPole, n_actions might be inferred.
-        # For continuous, or more complex custom envs, action space setup is critical.
-        # self.n_actions = n_actions # Store if needed for other logic
+        self.buffer = PPOBuffer()
 
-        try:
-            self.agent = config.build()
-            print(f"PPOAgent for {self.env_name} initialized successfully.")
-        except Exception as e:
-            print(f"Error initializing PPOAgent: {e}")
-            # Fallback or error handling - for now, let's ensure self.agent exists for other methods
-            # This is a simplistic fallback. A real scenario might re-raise or handle differently.
-            print("PPOAgent initialization failed. Agent will not be functional.")
-            self.agent = None
+        self.policy = ActorCritic(n_states, n_actions)
+        self.optimizer = torch.optim.Adam([
+            {'params': self.policy.actor.parameters(), 'lr': lr_actor},
+            {'params': self.policy.critic.parameters(), 'lr': lr_critic}
+        ])
 
+        self.policy_old = ActorCritic(n_states, n_actions)
+        self.policy_old.load_state_dict(self.policy.state_dict())
+        
+        self.MseLoss = nn.MSELoss()
 
-    def choose_action(self, observation):
-        if self.agent is None:
-            print("PPOAgent not initialized, cannot choose action.")
-            # Return a default action or raise an error, depending on desired handling
-            return 0 # Assuming 0 is a valid action for CartPole as a fallback
+    def state_to_tensor(self, state):
+        # This is a basic conversion. A more robust solution would involve environment-specific observation spaces.
+        distance_to_food, pheromone_level, has_food = state
+        norm_dist = distance_to_food / 50.0 # Normalize by max possible distance (grid diagonal)
+        norm_phero = pheromone_level / 30.0 # Normalize by an estimated max pheromone level
+        has_food_float = 1.0 if has_food else 0.0
+        return torch.FloatTensor([norm_dist, norm_phero, has_food_float])
 
-        # RLLib's compute_single_action is typically used for inference/exploitation
-        return self.agent.compute_single_action(observation)
+    def choose_action(self, state):
+        with torch.no_grad():
+            state_tensor = self.state_to_tensor(state)
+            action, action_logprob, state_val = self.policy_old.act(state_tensor.unsqueeze(0))
+        
+        # Store transition in buffer
+        self.buffer.states.append(state_tensor)
+        self.buffer.actions.append(action)
+        self.buffer.logprobs.append(action_logprob)
+        self.buffer.state_values.append(state_val)
 
-    def learn(self, state, action, reward, next_state, done, next_action=None): # Added next_action
-        # PPO typically learns from batches of experiences collected by rollout workers.
-        # The RLLib PPOTrainer.train() method triggers a round of experience collection and learning.
-        # Directly feeding single transitions (s, a, r, s', done) is not the standard RLLib PPO workflow.
-        # For this subtask, we'll call .train() and acknowledge this is a temporary simplification.
-        # Proper integration would involve adapting RLTrainer or using RLLib's own training utilities.
-        if self.agent is None:
-            print("PPOAgent not initialized, cannot learn.")
-            return {}
+        return action.item()
+    
+    def learn(self, state, action, reward, next_state, done, next_action=None):
+        # This method is not used by PPO, which learns in batches.
+        # The `update` method should be called from the trainer instead.
+        pass
 
-        print("PPOAgent.learn() called. Triggering self.agent.train(). Note: This is a simplified integration.")
-        # The result of train() is a dictionary of metrics.
-        try:
-            result = self.agent.train()
-            return result
-        except Exception as e:
-            print(f"Error during PPOAgent.train(): {e}")
-            return {}
+    def update(self):
+        # Monte Carlo estimate of returns
+        rewards = []
+        discounted_reward = 0
+        for reward, is_terminal in zip(reversed(self.buffer.rewards), reversed(self.buffer.dones)):
+            if is_terminal:
+                discounted_reward = 0
+            discounted_reward = reward + (self.gamma * discounted_reward)
+            rewards.insert(0, discounted_reward)
+
+        # Normalizing the rewards
+        rewards = torch.tensor(rewards, dtype=torch.float32)
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
+
+        # convert list to tensor
+        old_states = torch.squeeze(torch.stack(self.buffer.states, dim=0)).detach()
+        old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach()
+        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach()
+        old_state_values = torch.squeeze(torch.stack(self.buffer.state_values, dim=0)).detach()
+
+        # calculate advantages
+        advantages = rewards.detach() - old_state_values.detach()
+        
+        # Optimize policy for K epochs
+        for _ in range(self.K_epochs):
+            # Evaluating old actions and values
+            logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+
+            # match state_values tensor dimensions with rewards tensor
+            state_values = torch.squeeze(state_values)
+            
+            # Finding the ratio (pi_theta / pi_theta__old)
+            ratios = torch.exp(logprobs - old_logprobs.detach())
+
+            # Finding Surrogate Loss
+            surr1 = ratios * advantages
+            surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
+
+            # final loss of clipped objective PPO
+            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropy
+            
+            # take gradient step
+            self.optimizer.zero_grad()
+            loss.mean().backward()
+            self.optimizer.step()
+            
+        # Copy new weights into old policy
+        self.policy_old.load_state_dict(self.policy.state_dict())
+
+        # clear buffer
+        self.buffer.clear()
+        
+        return loss.mean().item()
 
     def save_weights(self, filepath):
-        if self.agent is None:
-            print("PPOAgent not initialized, cannot save weights.")
-            return None
-        try:
-            # RLLib's save creates a checkpoint directory.
-            # The 'filepath' should ideally be a directory path.
-            checkpoint_dir = self.agent.save(checkpoint_dir=filepath) # filepath is expected to be a dir
-            print(f"PPOAgent weights saved to checkpoint directory: {checkpoint_dir}")
-            return checkpoint_dir
-        except Exception as e:
-            print(f"Error saving PPOAgent weights: {e}")
-            return None
+        torch.save(self.policy.state_dict(), filepath)
 
     def load_weights(self, filepath):
-        if self.agent is None:
-            print("PPOAgent not initialized, cannot load weights.")
-            return
-        try:
-            # 'filepath' should be the path to the checkpoint directory/file created by save().
-            self.agent.restore(filepath)
-            print(f"PPOAgent weights loaded from: {filepath}")
-        except Exception as e:
-            print(f"Error loading PPOAgent weights: {e}")
+        self.policy.load_state_dict(torch.load(filepath))
+        self.policy_old.load_state_dict(torch.load(filepath))
+
 
 class QLearningAgent(RLAgent):
     """
@@ -250,13 +328,14 @@ class SARSAAgent(RLAgent):
         return action
 
     def update_epsilon(self, episode):
-        self.epsilon = max(0.1, self.epsilon * (0.9 ** episode))
+        self.epsilon = max(0.1, self.epsilon * (0.9 ** episode))  # Exponential decay
 
     def state_to_index(self, state):
         # This state_to_index function is specific to the AntEnvironment's state representation.
         # It might need to be generalized or passed in if other environments are used.
         distance_to_food, pheromone_level, has_food = state
         distance_index = int(distance_to_food % 10)
+        pheromone_index = 0
         if pheromone_level < 0.33:
             pheromone_index = 0
         elif pheromone_level < 0.66:
@@ -269,16 +348,14 @@ class SARSAAgent(RLAgent):
     def learn(self, state, action, reward, next_state, done, next_action): # next_action is crucial for SARSA
         state_index = self.state_to_index(state)
         next_state_index = self.state_to_index(next_state)
-
         current_q = self.q_table[state_index, action]
 
         if done:
-            target_q = reward # If done, the future reward is 0, so Q(s',a') is effectively 0.
+            target_q = reward
         else:
-            # SARSA uses the Q-value of the actual next action taken in the next state.
-            next_q_value = self.q_table[next_state_index, next_action]
-            target_q = reward + self.gamma * next_q_value
-        
+            next_q = self.q_table[next_state_index, next_action] # SARSA uses the Q-value of the next action
+            target_q = reward + self.gamma * next_q
+
         new_q = current_q + self.lr * (target_q - current_q)
         self.q_table[state_index, action] = new_q
 

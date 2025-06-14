@@ -2,7 +2,7 @@ import streamlit as st
 from simulate import SimulationManager # Assuming simulate.py is in the same directory or PYTHONPATH
 from ant_environment import AntEnvironment
 from rl_agent import QLearningAgent
-from params import config1, config2, config3, config4
+from params import config1, config2, config3, config4, config5
 import threading
 import time # For potential auto-refresh logic later
 
@@ -17,7 +17,7 @@ if 'sim_manager' not in st.session_state:
     st.session_state.active_simulation_config_name = None # Config name of the currently/last run sim
     st.session_state.training_thread = None
     st.session_state.results_df = None
-    st.session_state.plot_paths = None
+    st.session_state.plot_figures = None # Changed from plot_paths
 
 st.title("🐜 SwarmRL Simulation Dashboard")
 
@@ -43,6 +43,7 @@ config_options = {
     "Config 2": config2,
     "Config 3": config3,
     "Config 4": config4,
+    "Config 5": config5,
 }
 # Use the session state to keep track of the selected config name
 # Ensure current_config_name is initialized before this line if not already
@@ -60,7 +61,7 @@ if selected_config_name_from_selectbox != st.session_state.current_config_name:
     # Clear previous results when config changes if a simulation is not running
     if not st.session_state.simulation_running:
         st.session_state.results_df = None
-        st.session_state.plot_paths = None
+        st.session_state.plot_figures = None # Changed from plot_paths
 
 selected_config_obj_original = config_options[st.session_state.current_config_name]
 
@@ -88,7 +89,7 @@ selected_config_to_run["visualize"] = st.session_state.show_visualization_cb
 if col1.button("🚀 Start Training", disabled=st.session_state.simulation_running, use_container_width=True):
     if st.session_state.sim_manager.state == "stopped":
         st.session_state.results_df = None # Clear previous results
-        st.session_state.plot_paths = None # Clear previous plots
+        st.session_state.plot_figures = None # Clear previous plots
         st.session_state.active_simulation_config_name = st.session_state.current_config_name
 
         # Initialize placeholder for image if visualization is on
@@ -106,7 +107,7 @@ if col1.button("🚀 Start Training", disabled=st.session_state.simulation_runni
         st.session_state.training_thread.start()
         st.session_state.simulation_running = True
         st.success(f"Training started for {st.session_state.active_simulation_config_name} in the background...")
-        st.experimental_rerun() # Rerun to update button states and status
+        st.rerun() # Fixed: use st.rerun() instead of st.experimental_rerun()
     else:
         st.warning("Simulation is already running or paused. Please stop it first.")
 
@@ -115,20 +116,20 @@ if col2.button("⏸️ Pause", disabled=not st.session_state.simulation_running 
     st.session_state.sim_manager.pause()
     # simulation_running remains true, but sim_manager.state will be 'paused'
     st.info("Simulation paused.")
-    st.experimental_rerun()
+    st.rerun() # Fixed
 
 if col3.button("▶️ Resume", disabled=not st.session_state.simulation_running or st.session_state.sim_manager.state != "paused", use_container_width=True):
     st.session_state.sim_manager.resume()
     st.info("Simulation resumed.")
-    st.experimental_rerun()
+    st.rerun() # Fixed
 
 if col4.button("⏹️ Stop", disabled=st.session_state.sim_manager.state == "stopped", use_container_width=True):
     stop_simulation()
     st.warning("Simulation stopped.")
-    st.experimental_rerun()
+    st.rerun() # Fixed
 
 if col5.button("🔄 Refresh Status", use_container_width=True):
-    st.experimental_rerun()
+    st.rerun() # Fixed
 
 # --- Simulation Status (dynamically updates) ---
 st.header("Current Status")
@@ -193,27 +194,27 @@ if st.session_state.training_thread and not st.session_state.training_thread.is_
     st.success(f"Training for {st.session_state.active_simulation_config_name} finished!")
     # Retrieve final results once thread is done
     st.session_state.results_df = st.session_state.sim_manager.latest_results_df
-    st.session_state.plot_paths = st.session_state.sim_manager.latest_plot_paths
+    st.session_state.plot_figures = st.session_state.sim_manager.latest_plot_paths # This now holds figures
 
     st.session_state.training_thread = None
     st.session_state.simulation_running = False
-    st.experimental_rerun() # Rerun to show final results and update button states
+    st.rerun() # Fixed: Rerun to show final results and update button states
 
-# --- Results & Visualization (Post-run) ---
-if st.session_state.results_df is not None:
-    st.header(f"📊 Results for {st.session_state.active_simulation_config_name}")
-    st.dataframe(st.session_state.results_df)
+# --- Results and Plots ---
+st.header("Results and Analysis")
+if st.session_state.results_df is not None and not st.session_state.results_df.empty:
+    st.info(f"Showing results for the last completed run: **{st.session_state.active_simulation_config_name}**")
+    
+    # Display plots
+    if st.session_state.plot_figures:
+        for plot_name, fig in st.session_state.plot_figures.items():
+            st.plotly_chart(fig, use_container_width=True)
 
-if st.session_state.plot_paths:
-    st.header(f"📈 Plots for {st.session_state.active_simulation_config_name}")
-    for plot_path in st.session_state.plot_paths:
-        try:
-            st.image(plot_path)
-        except Exception as e:
-            st.error(f"Error loading plot {plot_path}: {e}")
+    # Display dataframe
+    with st.expander("View Raw Results Data"):
+        st.dataframe(st.session_state.results_df)
 else:
-    if st.session_state.sim_manager.state == "stopped" and st.session_state.active_simulation_config_name is not None :
-         st.info("No plots generated or training was stopped before plots could be generated.")
+    st.info("No results to display. Run a simulation to see the output.")
 
 
 # Auto-refresh loop while training (optional, use with caution)
@@ -221,9 +222,4 @@ else:
 # A dedicated refresh button is safer.
 if st.session_state.simulation_running and st.session_state.training_thread and st.session_state.training_thread.is_alive():
     time.sleep(2) # Refresh interval
-    st.experimental_rerun()
-
-
-# To run this dashboard:
-# 1. Ensure you are in the correct directory (where simulate.py, params.py etc. are).
-# 2. Run `streamlit run dashboard.py` in your terminal.
+    st.rerun() # Fixed
