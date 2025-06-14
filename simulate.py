@@ -3,7 +3,7 @@ import random
 import argparse
 from threading import Thread, Event
 from ant_environment import AntEnvironment
-from rl_agent import QLearningAgent
+from rl_agent import PPOAgent, GNNAgent
 from rl_trainer import RLTrainer
 from params import *
 import pygame
@@ -12,7 +12,7 @@ import pygame
 class SimulationManager:
     def __init__(self):
         # TODO: Agent class could be configurable here if PPO is re-added
-        self.trainer = RLTrainer(AntEnvironment, QLearningAgent)
+        self.trainer = RLTrainer(AntEnvironment, PPOAgent)
         self.state = "stopped"  # Possible states: stopped, running, paused
         self.latest_results_df = None
         self.latest_plot_paths = None
@@ -32,7 +32,7 @@ class SimulationManager:
 
     def run_simulation(self, config): # Modified to accept config
         # Re-initialize trainer with the agent type from config if that feature is added
-        self.trainer = RLTrainer(AntEnvironment, QLearningAgent) # QLearningAgent for now
+        self.trainer = RLTrainer(AntEnvironment, GNNAgent)
         n_actions = config["num_actions"]
 
         # The train method in RLTrainer now handles episodes from the config.

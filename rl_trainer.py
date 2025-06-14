@@ -165,7 +165,15 @@ class RLTrainer:
             agents[0].save_weights(weights_filepath)
             print(f"Saved Q-table for agent 0 to {weights_filepath}")
 
-        return pd.DataFrame(self.results)
+        # Create DataFrame and ensure correct data types
+        results_df = pd.DataFrame(self.results)
+        # Convert numeric columns to float
+        numeric_columns = ['total_reward', 'steps', 'loss']
+        for col in numeric_columns:
+            if col in results_df.columns:
+                results_df[col] = pd.to_numeric(results_df[col], errors='coerce')
+        
+        return results_df
 
 
     def run_ppo_episode(self, environment, agents, max_steps):
