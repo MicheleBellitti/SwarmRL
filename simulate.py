@@ -143,13 +143,11 @@ if __name__ == "__main__":
             # analyze_results might not be suitable for inference data or may need adjustment
             # if hasattr(sim_manager, 'trainer') and sim_manager.trainer is not None:
             #      sim_manager.trainer.analyze_results(inference_results_df, idx="cli_inference")
-            else:
-                print("Trainer not available for analyzing results.")
         else:
-            print("Training did not produce results.")
+            print("Trainer not available for analyzing results.")
 
-    elif args.mode == "infer":
-        print(f"Starting inference with config {args.config_index} using weights from {args.weights_file}...")
+    elif args.mode == "train":
+        print(f"Starting training with config {args.config_index} using weights from {args.weights_file}...")
         # We need a method in SimulationManager to handle inference
         # For now, let's assume we add it: run_inference(self, weights_filepath, num_episodes, config)
         # This method will be added in the next step.

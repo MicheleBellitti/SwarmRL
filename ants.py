@@ -1,7 +1,6 @@
 import itertools
 import numpy as np
 import pygame
-import pygame_gui
 import math
 from PIL import Image # Added for Streamlit visualization
 # numpy is already imported as np
