@@ -79,55 +79,41 @@ class RLTrainer:
         self.config = config
         self.episodes = episodes
         self.current_episode = 0
-        self.results = []
+        self.results = [] # For detailed results, returned at the end
         self._state = "running"
+
+        # Initialize for live metrics
+        self.live_metrics = {
+            "rewards": [],
+            "food_collected": [],
+            "steps": []
+        }
+
+        consecutive_all_food_episodes = 0 # Initialize for early stopping
 
         # Create the environment and agents
         self.environment = self.environment_class(**self.config)
 
-        # Agent selection and instantiation
+        # Agent selection based on config
         agent_type_str = self.config.get("agent_type", "qlearning").lower()
-        is_ppo = agent_type_str == "ppo"
-        
-        agents = []
-        if is_ppo:
-            from rl_agent import PPOAgent
-            agent_params = {
-                "n_states": self.config["num_states"],
-                "n_actions": self.config["num_actions"],
-                "lr_actor": self.config.get("lr_actor", 0.0003),
-                "lr_critic": self.config.get("lr_critic", 0.001),
-                "gamma": self.config.get("gamma", 0.99),
-                "K_epochs": self.config.get("K_epochs", 4),
-                "eps_clip": self.config.get("eps_clip", 0.2),
-            }
-            # Note: PPO implementation currently supports a single agent
-            agents.append(PPOAgent(**agent_params))
-            print("Using PPOAgent")
-        else:
-            AgentClass = None
-            if agent_type_str == "sarsa":
-                from rl_agent import SARSAAgent
-                AgentClass = SARSAAgent
-                print("Using SARSAAgent")
-            else: # Default to QLearningAgent
-                from rl_agent import QLearningAgent
-                AgentClass = QLearningAgent
-                print("Using QLearningAgent")
-            
-            agent_params = {
-                "n_states": self.environment.num_states,
-                "n_actions": self.environment.num_actions,
-                "learning_rate": self.config.get("learning_rate", 0.1),
-                "gamma": self.config.get("gamma", 0.95),
-                "epsilon": self.config.get("epsilon", 0.5),
-            }
-            agents = [AgentClass(**agent_params) for _ in range(config["num_agents"])]
+        if agent_type_str == "sarsa":
+            from rl_agent import SARSAAgent
+            self.agent_class_to_use = SARSAAgent
+            print("Using SARSAAgent")
+        else: # Default to QLearningAgent
+            from rl_agent import QLearningAgent
+            self.agent_class_to_use = QLearningAgent
+            print("Using QLearningAgent")
+
+        agents = [self.agent_class_to_use(self.environment.num_states, self.environment.num_actions,
+                                          learning_rate=self.config.get("learning_rate", 0.1),
+                                          gamma=self.config.get("gamma", 0.95),
+                                          epsilon=self.config.get("epsilon", 0.5)
+                                         ) for _ in range(config["num_agents"])]
 
         while self.current_episode < episodes:
             if self._state == "stopped":
-                if not is_ppo:
-                    plot_top_agents_q_tables(agents)
+                plot_top_agents_q_tables(agents)
                 return pd.DataFrame(self.results)
             
             self.environment.running_state = self._state
@@ -138,24 +124,37 @@ class RLTrainer:
 
             # Run the episode and collect data
             max_steps_per_episode = self.config.get("max_steps_per_episode", 50) # Get max_steps from config
-            
-            if is_ppo:
-                episode_data = self.run_ppo_episode(self.environment, agents, max_steps=max_steps_per_episode)
-            else:
-                episode_data = self.run_episode(self.environment, agents, max_steps=max_steps_per_episode)
+            episode_data = self.run_episode(self.environment, agents, max_steps=max_steps_per_episode)
+            self.results.append(episode_data) # Append full episode data for final DataFrame
 
-            self.results.append(episode_data)
+            # Update live metrics
+            self.live_metrics["rewards"].append(episode_data["total_reward"])
+            self.live_metrics["food_collected"].append(episode_data["food_collected"])
+            self.live_metrics["steps"].append(episode_data["steps"])
+
             print(f"Episode {self.current_episode + 1}/{episodes} complete. Total Reward: {episode_data['total_reward']}")
+
+            # Early stopping logic
+            if self.config.get("early_stopping_enabled", True):
+                if episode_data.get("early_stop_all_food_collected", False):
+                    consecutive_all_food_episodes += 1
+                else:
+                    consecutive_all_food_episodes = 0 # Reset counter
+
+                required_consecutive = self.config.get("early_stopping_consecutive_episodes", 5)
+                if consecutive_all_food_episodes >= required_consecutive:
+                    print(f"Early stopping: All food collected for {required_consecutive} consecutive episodes.")
+                    self.current_episode += 1 # Ensure episode count reflects this last one
+                    break # Exit the main training loop
+
             self.current_episode += 1
 
             # Update the epsilon value for agents
-            if not is_ppo:
-                for agent in agents:
-                    agent.update_epsilon(self.current_episode)
+            for agent in agents:
+                agent.update_epsilon(self.current_episode) # Pass true current_episode
 
         self._state = "stopped"
-        if not is_ppo:
-            plot_top_agents_q_tables(agents)
+        plot_top_agents_q_tables(agents)
 
         # Save the Q-table of the first agent
         if agents:
@@ -168,40 +167,6 @@ class RLTrainer:
         return pd.DataFrame(self.results)
 
 
-    def run_ppo_episode(self, environment, agents, max_steps):
-        # This method is specifically for PPO's data collection and update cycle.
-        # For simplicity, we'll handle one agent. Multi-agent PPO is more complex.
-        agent = agents[0]
-        
-        episode_data = {
-            "total_reward": 0,
-            "steps": 0,
-            "loss": 0,
-        }
-        
-        state = environment.reset() # Assuming reset returns a single state object
-        
-        for step in range(max_steps):
-            action = agent.choose_action(state[0]) # state is a list of states
-            next_state, reward, done = environment.step([action])
-
-            # Saving reward and is_terminals:
-            agent.buffer.rewards.append(reward[0])
-            agent.buffer.dones.append(done)
-            
-            state = next_state
-            episode_data["total_reward"] += reward[0]
-            episode_data["steps"] += 1
-            if done:
-                break
-        
-        # Update policy
-        loss = agent.update()
-        episode_data["loss"] = loss
-
-        return episode_data
-
-
     def run_episode(self, environment, agents, max_steps):
         overall_done = False # Overall episode termination flag
         episode_data = {
@@ -209,6 +174,7 @@ class RLTrainer:
             "steps": 0,
             "food_collected": 0,
             "pheromone_trail_usage": 0,
+            "early_stop_all_food_collected": False # Initialize new metric
         }
 
         food_found_flags = [False] * len(agents)
@@ -263,6 +229,9 @@ class RLTrainer:
                 break
 
         # Episode summary metrics
+        if overall_done and environment.check_if_done(): # check_if_done() confirms it was due to food
+            episode_data["early_stop_all_food_collected"] = True
+
         episode_data["food_collected"] = environment.ant_swarm.food_collected
         # Sum of rewards from all agents (or top N as before, adjust as needed)
         # For consistency, let's use the same top_indices logic if desired, or sum all.
@@ -272,69 +241,129 @@ class RLTrainer:
         
         return episode_data
 
-    def analyze_results(self, results_df, idx):
-        if results_df.empty:
-            print("Results are empty, skipping analysis.")
+    def analyze_results(self, results, idx):
+        # Determine window size for moving average
+        window_size = 10  # Adjust the window size as needed
+
+        # Apply moving average to the data series
+        if results.empty or window_size <= 0 or window_size > len(results):
+            print("Not enough data to generate plots or invalid window size.")
             return []
 
-        agent_type = self.config.get("agent_type", "qlearning")
-        
-        # Create a directory for plots if it doesn't exist
+        # Ensure 'plots' directory exists
         if not os.path.exists("plots"):
             os.makedirs("plots")
-            
-        figures = {}
 
-        # Plot 1: Cumulative Reward per Episode
-        fig_reward = go.Figure()
-        fig_reward.add_trace(go.Scatter(y=results_df['total_reward'], mode='lines', name='Total Reward'))
-        # Add moving average
-        if len(results_df['total_reward']) > 50:
-            moving_avg = results_df['total_reward'].rolling(window=50).mean()
-            fig_reward.add_trace(go.Scatter(y=moving_avg, mode='lines', name='50-episode MA', line=dict(dash='dash')))
-        fig_reward.update_layout(title=f'[{agent_type.upper()}] Cumulative Reward per Episode - {idx}',
-                                 xaxis_title='Episode', yaxis_title='Total Reward')
-        figures['reward_plot'] = fig_reward
+        plot_paths = []
 
-        # Plot 2: Steps per Episode
-        fig_steps = go.Figure()
-        fig_steps.add_trace(go.Scatter(y=results_df['steps'], mode='lines', name='Steps'))
-        fig_steps.update_layout(title=f'[{agent_type.upper()}] Steps per Episode - {idx}',
-                                xaxis_title='Episode', yaxis_title='Steps')
-        figures['steps_plot'] = fig_steps
-        
-        # Algorithm-specific plots
-        if agent_type == 'ppo' and 'loss' in results_df.columns:
-            fig_loss = go.Figure()
-            fig_loss.add_trace(go.Scatter(y=results_df['loss'], mode='lines', name='Loss'))
-            fig_loss.update_layout(title=f'[PPO] Training Loss per Episode - {idx}',
-                                     xaxis_title='Episode', yaxis_title='Loss')
-            figures['loss_plot'] = fig_loss
+        smoothed_total_reward = moving_average(results["total_reward"], window_size)
+        smoothed_pheromone_trail_usage = moving_average(
+            results["pheromone_trail_usage"], window_size
+        )
+        smoothed_avg_reward_per_step = moving_average(
+            np.array(results["total_reward"]) / np.array(results["steps"]), window_size
+        )
+        smoothed_food_collected = moving_average(results["food_collected"], window_size)
+        # Total reward trend with smoothing
+        plt.figure()
+        plt.plot(smoothed_total_reward, label="Total Reward per Episode", color="blue")
+        plt.xlabel("Episode")
+        plt.ylabel("Total Reward")
+        plt.title("Total Reward per Episode")
+        plt.legend()
+        plot_path_total_reward = f"plots/Total_reward_{idx}.png"
+        plt.savefig(plot_path_total_reward)
+        plot_paths.append(plot_path_total_reward)
+        # Total food collected trend with smoothing
+        plt.figure()
+        plt.plot(
+            smoothed_food_collected, label="Food collected per Episode", color="red"
+        )
+        plt.xlabel("Episode")
+        plt.ylabel("food collected")
+        plt.title("Food collected per Episode")
+        plt.legend()
+        plot_path_food_collected = f"plots/Food_Collected_{idx}.png"
+        plt.savefig(plot_path_food_collected)
+        plot_paths.append(plot_path_food_collected)
+        # Pheromone Trail Usage with smoothing
+        plt.figure()
+        plt.plot(
+            smoothed_pheromone_trail_usage,
+            label="Pheromone Trail Usage",
+            color="orange",
+        )
+        plt.xlabel("Episode")
+        plt.ylabel("Usage Ratio")
+        plt.title("Pheromone Trail Usage per Episode")
+        plt.legend()
+        plot_path_pheromone = f"plots/Pheromone_{idx}.png"
+        plt.savefig(plot_path_pheromone)
+        plot_paths.append(plot_path_pheromone)
 
-        # Note: Saving plots to files is removed, the dashboard will use the figure objects directly.
-        
-        # Keep Q-table plot for non-PPO agents if needed, but return figures instead.
-        if agent_type != 'ppo':
-            # The heatmap can be generated here as a figure object if desired.
-            pass
+        # Average Reward Per Step with smoothing
+        plt.figure()
+        plt.plot(
+            smoothed_avg_reward_per_step, label="Average Reward Per Step", color="green"
+        )
+        plt.xlabel("Episode")
+        plt.ylabel("Average Reward")
+        plt.title("Average Reward Per Step per Episode")
+        plt.legend()
+        plot_path_avg_reward = f"plots/Average_reward_{idx}.png"
+        plt.savefig(plot_path_avg_reward)
+        plot_paths.append(plot_path_avg_reward)
+        plt.close("all") # Close all figures to free memory
 
-        return figures
+        return plot_paths
 
     def load_and_run_inference(self, config, num_episodes, weights_filepath):
         """
-        Runs inference using pre-trained weights.
+        Loads agent weights and runs the simulation for inference.
         """
+        print(f"Starting inference for {num_episodes} episodes...")
         self.config = config
         self.episodes = num_episodes
         self.current_episode = 0
-        self.results = []
+        inference_results = []
         self._state = "running"
 
-        # Initialize environment and agent for inference
+        # Create the environment and agent(s)
         self.environment = self.environment_class(**self.config)
-        agent = self.agent_class(self.environment.num_states, self.environment.num_actions)
-        agent.load_weights(weights_filepath)
-        agents = [agent]  # Single agent for inference
+
+        # Assuming saving/loading weights for a single agent or the first one for simplicity
+        agent_type_str_inference = config.get("agent_type", "qlearning").lower()
+        if agent_type_str_inference == "sarsa":
+            from rl_agent import SARSAAgent
+            InferenceAgentClass = SARSAAgent
+        else:
+            from rl_agent import QLearningAgent
+            InferenceAgentClass = QLearningAgent
+
+        num_agents_to_load = 1 # Or determine from config
+        agents = [InferenceAgentClass(self.environment.num_states, self.environment.num_actions) for _ in range(num_agents_to_load)]
+
+        if not agents:
+            print("Error: No agents created for inference.")
+            return pd.DataFrame(inference_results)
+
+        # Load weights for the agent(s)
+        # For simplicity, loading the same weights for all inference agents if multiple are instantiated
+        # Or, adjust to load specific weights if they were saved per agent
+        for agent in agents:
+            try:
+                agent.load_weights(weights_filepath)
+                agent.epsilon = 0.01 # Set epsilon low for exploitation during inference
+                print(f"Weights loaded for agent from {weights_filepath}. Epsilon set to {agent.epsilon}.")
+            except FileNotFoundError:
+                print(f"Error: Weights file not found at {weights_filepath}. Cannot run inference.")
+                self._state = "stopped"
+                return pd.DataFrame(inference_results)
+            except Exception as e:
+                print(f"Error loading weights for agent: {e}")
+                self._state = "stopped"
+                return pd.DataFrame(inference_results)
+
 
         while self.current_episode < num_episodes:
             if self._state == "stopped":
@@ -348,13 +377,13 @@ class RLTrainer:
 
             # Run the episode for inference (no learning)
             episode_data = self._run_inference_episode(self.environment, agents, max_steps=config.get("max_steps", 50))
-            self.results.append(episode_data)
+            inference_results.append(episode_data)
             print(f"Inference Episode {self.current_episode + 1}/{num_episodes} complete. Reward: {episode_data['total_reward']}")
             self.current_episode += 1
 
         self._state = "stopped"
         print("Inference completed.")
-        return pd.DataFrame(self.results)
+        return pd.DataFrame(inference_results)
 
     def _run_inference_episode(self, environment, agents, max_steps):
         """

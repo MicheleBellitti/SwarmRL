@@ -11,6 +11,8 @@ import pygame
 
 class SimulationManager:
     def __init__(self):
+        # self.configs = [config1, config2, config3, config4] # Removed
+        # self.current_config_index = 0 # Removed
         # TODO: Agent class could be configurable here if PPO is re-added
         self.trainer = RLTrainer(AntEnvironment, QLearningAgent)
         self.state = "stopped"  # Possible states: stopped, running, paused
@@ -31,9 +33,13 @@ class SimulationManager:
         return self.run_simulation(config)
 
     def run_simulation(self, config): # Modified to accept config
+        # config = self.configs[self.current_config_index] # Removed
         # Re-initialize trainer with the agent type from config if that feature is added
         self.trainer = RLTrainer(AntEnvironment, QLearningAgent) # QLearningAgent for now
+        # n_ants = config["num_ants"] # Not directly used by SimulationManager
+        # n_states = config["num_states"] # Not directly used by SimulationManager
         n_actions = config["num_actions"]
+        # agents = [QLearningAgent(n_states, n_actions) for _ in range(n_ants)] # This logic is in RLTrainer
 
         # The train method in RLTrainer now handles episodes from the config.
         self.latest_results_df = self.trainer.train(config, config["episodes"])
@@ -64,6 +70,7 @@ class SimulationManager:
         self.trainer.set_state(self.state)
 
     def quit(self):
+
         self.state = "stopped"
         self.trainer.set_state(self.state)
 
@@ -109,8 +116,15 @@ if __name__ == "__main__":
                         help="Path to the weights file for inference.")
     parser.add_argument("--inference_episodes", type=int, default=10,
                         help="Number of episodes to run in inference mode.")
+    # Config selection for CLI inference will use a default (e.g., config1)
+    # Full config selection is primarily for the dashboard.
+    # parser.add_argument("--config_index", type=int, default=0, choices=range(4),
+    #                     help="Index of the configuration to use from params.py (0-3).")
 
     args = parser.parse_args()
+
+    pygame.init() # Pygame might be needed by AntEnvironment's rendering aspects even if not displayed via CLI.
+                  # Consider making rendering optional in AntEnvironment for pure CLI runs.
 
     if args.mode == "infer":
         sim_manager = SimulationManager() # Simpler init now
@@ -123,10 +137,36 @@ if __name__ == "__main__":
 
         inference_results_df = sim_manager.run_inference(args.weights_file, args.inference_episodes, selected_config)
         if inference_results_df is not None and not inference_results_df.empty:
+            print("Training completed.") # Should be "Inference completed."
+            print(inference_results_df.head())
+            # Ensure trainer is available for analyze_results
+            # analyze_results might not be suitable for inference data or may need adjustment
+            # if hasattr(sim_manager, 'trainer') and sim_manager.trainer is not None:
+            #      sim_manager.trainer.analyze_results(inference_results_df, idx="cli_inference")
+            else:
+                print("Trainer not available for analyzing results.")
+        else:
+            print("Training did not produce results.")
+
+    elif args.mode == "infer":
+        print(f"Starting inference with config {args.config_index} using weights from {args.weights_file}...")
+        # We need a method in SimulationManager to handle inference
+        # For now, let's assume we add it: run_inference(self, weights_filepath, num_episodes, config)
+        # This method will be added in the next step.
+        # Placeholder for calling the new inference method:
+        # inference_results_df = sim_manager.run_inference(args.weights_file, args.inference_episodes, selected_config)
+        # if inference_results_df is not None and not inference_results_df.empty:
+        #     print("Inference completed.")
+        #     print(inference_results_df.head())
+        # else:
+        #     print("Inference did not produce results or method not yet implemented.")
+        # print("Inference mode: Functionality to call inference method will be added next.") # Removed placeholder
+        inference_results_df = sim_manager.run_inference(args.weights_file, args.inference_episodes, selected_config)
+        if inference_results_df is not None and not inference_results_df.empty:
             print("Inference completed.")
             print(inference_results_df.head())
-            # Optionally analyze results
-            # sim_manager.trainer.analyze_results(inference_results_df, idx="cli_inference")
+            # Optionally, analyze inference results (e.g., plot rewards)
+            # sim_manager.trainer.analyze_results(inference_results_df, idx=f"inference_{args.config_index}")
         else:
             print("Inference did not produce results.")
 

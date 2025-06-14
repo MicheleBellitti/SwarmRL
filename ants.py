@@ -1,7 +1,7 @@
 import itertools
 import numpy as np
 import pygame
-# import pygame_gui  # REMOVED - Not used and causing compatibility issues
+import pygame_gui
 import math
 from PIL import Image # Added for Streamlit visualization
 # numpy is already imported as np
@@ -19,7 +19,6 @@ class AntSwarmRL(Swarm):
         num_food_sources=5,
         cell_size=15,
         max_food_per_source=100,
-        visualize=False,
     ):
         self.num_ants = num_ants
         self.grid_size = grid_size
@@ -36,19 +35,14 @@ class AntSwarmRL(Swarm):
         self.food_cell_size = 10
 
         # Pygame initialization
-        self.visualize = visualize
-        self.screen = None
-        self.clock = None
-        self.font = None
-        self.latest_frame_image = None
 
-        if self.visualize:
-            pygame.font.init()
-            self.screen = pygame.Surface(
-                (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
-            )
-            self.clock = pygame.time.Clock()
-            self.font = pygame.font.SysFont(None, 24)
+        self.screen = pygame.display.set_mode(
+            (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
+        )
+        pygame.display.set_caption("RL Ant Swarm Simulation")
+        self.clock = pygame.time.Clock() # Keep clock for potential non-streamlit uses or FPS calculation
+        self.font = pygame.font.SysFont(None, 24)
+        self.latest_frame_image = None # For Streamlit
 
     # def handle_events(self): # Removed - event handling will be separate or not used for Streamlit
     #     for event in pygame.event.get():
@@ -212,7 +206,7 @@ class AntSwarmRL(Swarm):
 
     def create_agent(self):
         return [
-            {"position": self.nest_location.copy(), "has_food": False}
+            {"position": self.nest_location, "has_food": False}
             for _ in range(self.num_ants)
         ]
 
@@ -337,8 +331,6 @@ class AntSwarmRL(Swarm):
                 self.latest_frame_image = None # Or a placeholder error image
 
     def draw_pheromone_trails(self):
-        if not self.visualize:
-            return
         # Assuming pheromone_trail is a 2D array with values indicating intensity
         for x in range(self.grid_size):
             for y in range(self.grid_size):
@@ -358,8 +350,6 @@ class AntSwarmRL(Swarm):
                     )
 
     def draw_food_sources(self):
-        if not self.visualize:
-            return
         spacing = 10  # Space between food units
 
         for food_position, food_quantity in self.food_sources.items():
@@ -416,8 +406,6 @@ class AntSwarmRL(Swarm):
                 )
 
     def draw_nest(self):
-        if not self.visualize:
-            return
         center_x = self.nest_location[0] * self.cell_size + self.cell_size // 2
         center_y = self.nest_location[1] * self.cell_size + self.cell_size // 2
 
@@ -436,8 +424,6 @@ class AntSwarmRL(Swarm):
         pygame.draw.polygon(self.screen, (138, 43, 226), points)
 
     def draw_ants(self):
-        if not self.visualize:
-            return
         for ant in self.ants:
             color = (
                 (255, 0, 0) if not ant["has_food"] else (255, 215, 0)
@@ -449,12 +435,10 @@ class AntSwarmRL(Swarm):
                     int(ant["position"][0] * self.cell_size + self.cell_size / 2),
                     int(ant["position"][1] * self.cell_size + self.cell_size / 2),
                 ),
-                self.cell_size // 3,
+                self.cell_size / 3,
             )
 
     def display_info(self):
-        if not self.visualize:
-            return
         info_text = self.font.render(
             f"Food Collected: {self.food_collected}", True, (255, 255, 255)
         )
@@ -463,13 +447,10 @@ class AntSwarmRL(Swarm):
     def get_pheromone_color(self, intensity):
         # Improved color gradient for pheromone trails
         max_val = self.pheromone_trail.max()
-        if max_val > 0:
-            return (0, int(255 * intensity / max_val), 0)
-        return (0, 0, 0)
+        return (0, 255 * intensity / max_val, 0)
 
     def close(self):
-        if self.visualize:
-            pygame.font.quit()
+        pygame.quit()
 
 
 
@@ -481,7 +462,6 @@ class AntSwarm(Swarm):
         num_food_sources=7,
         cell_size=16,
         max_food_per_source=80,
-        visualize=False,
     ):
         self.num_ants = num_ants
         self.grid_size = grid_size
@@ -498,19 +478,14 @@ class AntSwarm(Swarm):
         self.food_cell_size = 10
 
         # Pygame initialization
-        self.visualize = visualize
-        self.screen = None
-        self.clock = None
-        self.font = None
-        self.latest_frame_image = None # For Streamlit (if AntSwarm is used directly)
 
-        if self.visualize:
-            pygame.font.init()
-            self.screen = pygame.Surface(
-                (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
-            )
-            self.clock = pygame.time.Clock() # Keep for non-Streamlit use
-            self.font = pygame.font.SysFont(None, 24)
+        self.screen = pygame.display.set_mode(
+            (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
+        )
+        pygame.display.set_caption("Vanilla Ant Swarm Simulation")
+        self.clock = pygame.time.Clock() # Keep for non-Streamlit use
+        self.font = pygame.font.SysFont(None, 24)
+        self.latest_frame_image = None # For Streamlit (if AntSwarm is used directly)
 
         
     # def handle_events(self): # Removed
@@ -656,7 +631,7 @@ class AntSwarm(Swarm):
 
     def create_agent(self):
         return [
-            {"position": self.nest_location.copy(), "has_food": False}
+            {"position": self.nest_location, "has_food": False}
             for _ in range(self.num_ants)
         ]
 
@@ -777,8 +752,6 @@ class AntSwarm(Swarm):
 
 
     def draw_pheromone_trails(self):
-        if not self.visualize:
-            return
         # Assuming pheromone_trail is a 2D array with values indicating intensity
         for x in range(self.grid_size):
             for y in range(self.grid_size):
@@ -798,8 +771,6 @@ class AntSwarm(Swarm):
                     )
 
     def draw_food_sources(self):
-        if not self.visualize:
-            return
         spacing = 10  # Space between food units
 
         for food_position, food_quantity in self.food_sources.items():
@@ -856,8 +827,6 @@ class AntSwarm(Swarm):
                 )
 
     def draw_nest(self):
-        if not self.visualize:
-            return
         center_x = self.nest_location[0] * self.cell_size + self.cell_size // 2
         center_y = self.nest_location[1] * self.cell_size + self.cell_size // 2
 
@@ -876,8 +845,6 @@ class AntSwarm(Swarm):
         pygame.draw.polygon(self.screen, (138, 43, 226), points)
 
     def draw_ants(self):
-        if not self.visualize:
-            return
         for ant in self.ants:
             color = (
                 (255, 0, 0) if not ant["has_food"] else (255, 215, 0)
@@ -889,12 +856,10 @@ class AntSwarm(Swarm):
                     int(ant["position"][0] * self.cell_size + self.cell_size / 2),
                     int(ant["position"][1] * self.cell_size + self.cell_size / 2),
                 ),
-                self.cell_size // 3,
+                self.cell_size / 3,
             )
 
     def display_info(self):
-        if not self.visualize:
-            return
         info_text = self.font.render(
             f"Food Collected: {self.food_collected}", True, (255, 255, 255)
         )
@@ -903,13 +868,10 @@ class AntSwarm(Swarm):
     def get_pheromone_color(self, intensity):
         # Improved color gradient for pheromone trails
         max_val = self.pheromone_trail.max()
-        if max_val > 0:
-            return (0, int(255 * intensity / max_val), 0)
-        return (0, 0, 0)
+        return (0, 255 * intensity / max_val, 0)
 
     def close(self):
-        if self.visualize:
-            pygame.font.quit()
+        pygame.quit()
 
 
 # Usage example
