@@ -1,19 +1,23 @@
-numpy
-matplotlib
-plotly
+numpy==1.26.4
+matplotlib==3.9.0
+plotly==5.22.0
 scipy
 flask
 flask-socketio
 flask-restful
 flask-cors
-pandas
+pandas==2.2.2
 dash
-torch
-RLlib
+# torch # Temporarily removed to save space
+# RLlib # Commenting out as ray[rllib] is more standard
 pyNetLogo
-pygame
+pygame==2.6.1
 pettingzoo
-ray[rllib]
+# ray[rllib] # Temporarily removed to save space
 pygame-gui
 gym
 gymnasium
+streamlit==1.36.0
+Pillow==10.4.0
+seaborn==0.13.2
+torch==2.3.1

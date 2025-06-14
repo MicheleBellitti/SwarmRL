@@ -1,8 +1,10 @@
 import itertools
 import numpy as np
 import pygame
-import pygame_gui
+# import pygame_gui  # REMOVED - Not used and causing compatibility issues
 import math
+from PIL import Image # Added for Streamlit visualization
+# numpy is already imported as np
 import random
 from environment import Swarm
 
@@ -17,6 +19,7 @@ class AntSwarmRL(Swarm):
         num_food_sources=5,
         cell_size=15,
         max_food_per_source=100,
+        visualize=False,
     ):
         self.num_ants = num_ants
         self.grid_size = grid_size
@@ -33,25 +36,31 @@ class AntSwarmRL(Swarm):
         self.food_cell_size = 10
 
         # Pygame initialization
+        self.visualize = visualize
+        self.screen = None
+        self.clock = None
+        self.font = None
+        self.latest_frame_image = None
 
-        self.screen = pygame.display.set_mode(
-            (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
-        )
-        pygame.display.set_caption("RL Ant Swarm Simulation")
-        self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont(None, 24)
+        if self.visualize:
+            pygame.font.init()
+            self.screen = pygame.Surface(
+                (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
+            )
+            self.clock = pygame.time.Clock()
+            self.font = pygame.font.SysFont(None, 24)
 
-    def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or (
-                event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
-            ):
-                self.close()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    self.simulation_speed += 1
-                if event.key == pygame.K_DOWN:
-                    self.simulation_speed -= 2
+    # def handle_events(self): # Removed - event handling will be separate or not used for Streamlit
+    #     for event in pygame.event.get():
+    #         if event.type == pygame.QUIT or (
+    #             event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+    #         ):
+    #             self.close()
+    #         if event.type == pygame.KEYDOWN:
+    #             if event.key == pygame.K_UP:
+    #                 self.simulation_speed += 1
+    #             if event.key == pygame.K_DOWN:
+    #                 self.simulation_speed -= 2
                 
     def compute_even_food_positions(self):
         positions = []
@@ -117,10 +126,19 @@ class AntSwarmRL(Swarm):
         self.init_environment()
 
     def step(self, learning=True):
-        self.handle_events()
+        # self.handle_events() # Removed event handling from step
         if learning:
-            for ant in self.ants:
-                self.move_ant(ant)
+            # This part is for RL context where 'move_ant' is called by AntEnvironment.apply_action
+            # For non-RL AntSwarm, move_ant might be called here.
+            # In AntSwarmRL context, self.move_ant is typically called by AntEnvironment based on agent actions.
+            # So, this loop might be redundant if AntEnvironment controls individual ant moves.
+            # However, if AntSwarmRL.step() is meant to be a self-contained step for all ants,
+            # then actions should be passed here or determined internally.
+            # Given AntEnvironment.step calls self.ant_swarm.step(learning=False), this 'learning' block
+            # is currently NOT executed when called from AntEnvironment.
+            # If it were, it would call self.move_ant(ant) without a specific action,
+            # which defaults to self.search_food(ant) - random movement.
+            pass # Ant movements are handled by AntEnvironment.apply_action then ant_swarm.move_ant
         for ant in self.ants:
             if ant["has_food"] and np.array_equal(ant["position"], self.nest_location):
                 ant["has_food"] = False
@@ -194,7 +212,7 @@ class AntSwarmRL(Swarm):
 
     def create_agent(self):
         return [
-            {"position": self.nest_location, "has_food": False}
+            {"position": self.nest_location.copy(), "has_food": False}
             for _ in range(self.num_ants)
         ]
 
@@ -299,10 +317,28 @@ class AntSwarmRL(Swarm):
         self.draw_ants()
         self.display_info()
 
-        pygame.display.flip()
-        self.clock.tick(self.simulation_speed)
+        # pygame.display.flip() # Removed for Streamlit
+        # self.clock.tick(self.simulation_speed) # Removed for Streamlit
+
+    def capture_frame_for_streamlit(self):
+        self.render() # Ensure the screen is drawn
+        if self.screen:
+            rgb_array = pygame.surfarray.array3d(self.screen)
+            # Pygame surfaces are typically (width, height, channels).
+            # PIL/Pillow Images expect (height, width, channels).
+            # Transpose if necessary. It's often (1, 0, 2) for Pygame -> PIL.
+            try:
+                transposed_array = np.transpose(rgb_array, (1, 0, 2))
+                self.latest_frame_image = Image.fromarray(transposed_array)
+            except ValueError as e:
+                print(f"Error during surfarray transpose or Image.fromarray: {e}")
+                print(f"Original surfarray shape: {rgb_array.shape}")
+                # Fallback or error image if conversion fails
+                self.latest_frame_image = None # Or a placeholder error image
 
     def draw_pheromone_trails(self):
+        if not self.visualize:
+            return
         # Assuming pheromone_trail is a 2D array with values indicating intensity
         for x in range(self.grid_size):
             for y in range(self.grid_size):
@@ -322,6 +358,8 @@ class AntSwarmRL(Swarm):
                     )
 
     def draw_food_sources(self):
+        if not self.visualize:
+            return
         spacing = 10  # Space between food units
 
         for food_position, food_quantity in self.food_sources.items():
@@ -378,6 +416,8 @@ class AntSwarmRL(Swarm):
                 )
 
     def draw_nest(self):
+        if not self.visualize:
+            return
         center_x = self.nest_location[0] * self.cell_size + self.cell_size // 2
         center_y = self.nest_location[1] * self.cell_size + self.cell_size // 2
 
@@ -396,6 +436,8 @@ class AntSwarmRL(Swarm):
         pygame.draw.polygon(self.screen, (138, 43, 226), points)
 
     def draw_ants(self):
+        if not self.visualize:
+            return
         for ant in self.ants:
             color = (
                 (255, 0, 0) if not ant["has_food"] else (255, 215, 0)
@@ -407,10 +449,12 @@ class AntSwarmRL(Swarm):
                     int(ant["position"][0] * self.cell_size + self.cell_size / 2),
                     int(ant["position"][1] * self.cell_size + self.cell_size / 2),
                 ),
-                self.cell_size / 3,
+                self.cell_size // 3,
             )
 
     def display_info(self):
+        if not self.visualize:
+            return
         info_text = self.font.render(
             f"Food Collected: {self.food_collected}", True, (255, 255, 255)
         )
@@ -419,10 +463,13 @@ class AntSwarmRL(Swarm):
     def get_pheromone_color(self, intensity):
         # Improved color gradient for pheromone trails
         max_val = self.pheromone_trail.max()
-        return (0, 255 * intensity / max_val, 0)
+        if max_val > 0:
+            return (0, int(255 * intensity / max_val), 0)
+        return (0, 0, 0)
 
     def close(self):
-        pygame.quit()
+        if self.visualize:
+            pygame.font.quit()
 
 
 
@@ -434,6 +481,7 @@ class AntSwarm(Swarm):
         num_food_sources=7,
         cell_size=16,
         max_food_per_source=80,
+        visualize=False,
     ):
         self.num_ants = num_ants
         self.grid_size = grid_size
@@ -450,26 +498,32 @@ class AntSwarm(Swarm):
         self.food_cell_size = 10
 
         # Pygame initialization
+        self.visualize = visualize
+        self.screen = None
+        self.clock = None
+        self.font = None
+        self.latest_frame_image = None # For Streamlit (if AntSwarm is used directly)
 
-        self.screen = pygame.display.set_mode(
-            (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
-        )
-        pygame.display.set_caption("Vanilla Ant Swarm Simulation")
-        self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont(None, 24)
+        if self.visualize:
+            pygame.font.init()
+            self.screen = pygame.Surface(
+                (self.grid_size * self.cell_size, self.grid_size * self.cell_size)
+            )
+            self.clock = pygame.time.Clock() # Keep for non-Streamlit use
+            self.font = pygame.font.SysFont(None, 24)
 
         
-    def handle_events(self):
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT or (
-                    event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
-                ):
-                    self.close()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
-                        self.simulation_speed += 1
-                    if event.key == pygame.K_DOWN:
-                        self.simulation_speed -= 2
+    # def handle_events(self): # Removed
+    #         for event in pygame.event.get():
+    #             if event.type == pygame.QUIT or (
+    #                 event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+    #             ):
+    #                 self.close()
+    #             if event.type == pygame.KEYDOWN:
+    #                 if event.key == pygame.K_UP:
+    #                     self.simulation_speed += 1
+    #                 if event.key == pygame.K_DOWN:
+    #                     self.simulation_speed -= 2
     def compute_even_food_positions(self):
         positions = []
         # Calculate the number of rows and columns in the grid that will evenly distribute the food sources
@@ -534,7 +588,7 @@ class AntSwarm(Swarm):
         self.init_environment()
 
     def step(self):
-        self.handle_events()
+        # self.handle_events() # Removed
         for ant in self.ants:
             self.move_ant(ant)
         for ant in self.ants:
@@ -602,7 +656,7 @@ class AntSwarm(Swarm):
 
     def create_agent(self):
         return [
-            {"position": self.nest_location, "has_food": False}
+            {"position": self.nest_location.copy(), "has_food": False}
             for _ in range(self.num_ants)
         ]
 
@@ -707,10 +761,24 @@ class AntSwarm(Swarm):
         self.draw_ants()
         self.display_info()
 
-        pygame.display.flip()
-        self.clock.tick(self.simulation_speed)
+        # pygame.display.flip() # Removed
+        # self.clock.tick(self.simulation_speed) # Removed
+
+    def capture_frame_for_streamlit(self): # Added for consistency if AntSwarm used directly
+        self.render()
+        if self.screen:
+            rgb_array = pygame.surfarray.array3d(self.screen)
+            try:
+                transposed_array = np.transpose(rgb_array, (1, 0, 2))
+                self.latest_frame_image = Image.fromarray(transposed_array)
+            except ValueError as e:
+                print(f"Error during surfarray transpose or Image.fromarray: {e}")
+                self.latest_frame_image = None
+
 
     def draw_pheromone_trails(self):
+        if not self.visualize:
+            return
         # Assuming pheromone_trail is a 2D array with values indicating intensity
         for x in range(self.grid_size):
             for y in range(self.grid_size):
@@ -730,6 +798,8 @@ class AntSwarm(Swarm):
                     )
 
     def draw_food_sources(self):
+        if not self.visualize:
+            return
         spacing = 10  # Space between food units
 
         for food_position, food_quantity in self.food_sources.items():
@@ -786,6 +856,8 @@ class AntSwarm(Swarm):
                 )
 
     def draw_nest(self):
+        if not self.visualize:
+            return
         center_x = self.nest_location[0] * self.cell_size + self.cell_size // 2
         center_y = self.nest_location[1] * self.cell_size + self.cell_size // 2
 
@@ -804,6 +876,8 @@ class AntSwarm(Swarm):
         pygame.draw.polygon(self.screen, (138, 43, 226), points)
 
     def draw_ants(self):
+        if not self.visualize:
+            return
         for ant in self.ants:
             color = (
                 (255, 0, 0) if not ant["has_food"] else (255, 215, 0)
@@ -815,10 +889,12 @@ class AntSwarm(Swarm):
                     int(ant["position"][0] * self.cell_size + self.cell_size / 2),
                     int(ant["position"][1] * self.cell_size + self.cell_size / 2),
                 ),
-                self.cell_size / 3,
+                self.cell_size // 3,
             )
 
     def display_info(self):
+        if not self.visualize:
+            return
         info_text = self.font.render(
             f"Food Collected: {self.food_collected}", True, (255, 255, 255)
         )
@@ -827,10 +903,13 @@ class AntSwarm(Swarm):
     def get_pheromone_color(self, intensity):
         # Improved color gradient for pheromone trails
         max_val = self.pheromone_trail.max()
-        return (0, 255 * intensity / max_val, 0)
+        if max_val > 0:
+            return (0, int(255 * intensity / max_val), 0)
+        return (0, 0, 0)
 
     def close(self):
-        pygame.quit()
+        if self.visualize:
+            pygame.font.quit()
 
 
 # Usage example
